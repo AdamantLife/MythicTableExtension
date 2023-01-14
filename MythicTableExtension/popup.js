@@ -5,7 +5,7 @@
  * @property {String} file - The file name
  * @property {String} classname - The Plugin's associtated class's constructor name
  * @property {String} instancevariable - The expected variable name on the DOM for the initialized class
- * @property {String} [popupbutton] - The id of the plugin's an associated button in the popup ui (if it has one)
+ * @property {String[]} [popupbuttons] - An array of ids of the plugin's asociated buttons in the popup ui (if it has any)
  */
 
 // DEVNOTE- !important Plugins must register their constructor on window in order for them to be checked for later
@@ -23,9 +23,28 @@ const PLUGINS = {
         file: "scripts/initiative.js",
         classname: "InitiativeTracker",
         instancevariable: "MTEINIT",
-        popupbutton: "generateInit"
+        popupbuttons: ["generateInit"]
+    },
+    "copytoken":{
+        file:"scripts/copytoken.js",
+        classname: "CopyToken",
+        instancevariable: "MTECOPY",
+        popupbuttons: ["copyToken","pasteToken"]
     }
 };
+
+/**
+ * A convenience function to simplify returning values from current tab
+ * @param {Function} func - The function to run
+ */
+function executeScript(func, args){
+    return chrome.scripting.executeScript({
+        target: { tabId: TABID},
+        func,
+        args,
+        world: "MAIN"
+    }).then(([main, ...etc])=> main.result)
+}
 
 /**
  * Checks if a plugin has already been injected into the dom and checks if the expected
@@ -43,12 +62,7 @@ function checkClassandInstance(plugin){
             window[plugin.instancevariable] && typeof window[plugin.instancevariable] !== "undefined"
         ]
     }
-    return chrome.scripting.executeScript({
-        target: { tabId: TABID},
-        func: check,
-        args:[plugin],
-        world: "MAIN"
-    });
+    return executeScript(check, [plugin]);
 }
 
 /**
@@ -65,12 +79,11 @@ function establishPlugin(plugin, isInjected, isInitialized){
         // Plugin has not been initialized
 
         if(isInjected){
-            return resolve(chrome.scripting.executeScript({
-                target: { tabId: TABID},
-                func: (plugin)=>{window[plugin.instancevariable] = new window[plugin.classname]();},
-                args:[plugin],
-                world: "MAIN"
-            }));
+            return resolve(
+                executeScript(
+                    (plugin)=>{window[plugin.instancevariable] = new window[plugin.classname]();},
+                    [plugin])
+                );
         }
 
         // Plugin needs to be injected
@@ -90,7 +103,6 @@ function establishPlugin(plugin, isInjected, isInitialized){
  */
 function checkAndEstablishPlugin(plugin){
     return checkClassandInstance(plugin)
-        .then(([main, ...etc])=>main.result)
         .then(([isInjected, isInitialized])=>establishPlugin(plugin, isInjected, isInitialized));
 }
 
@@ -99,24 +111,30 @@ function checkAndEstablishPlugin(plugin){
  * @returns {Promise} - The executeScript Promise
  */
 function getSubscriptions(){
-    return chrome.scripting.executeScript({
-        target: {tabId: TABID},
-        func: ()=>Object.keys(window.MTE.subscriptions),
-        world: "MAIN"
-    });
+    return executeScript(()=>Object.keys(window.MTE.subscriptions))
 }
 
 /**
  * Updates the Popup UI based on the current state of the Extension App (MTE)
  */
 function updateUI(){
-    for(let plugin of Object.values(PLUGINS)){
-        if(plugin.popupbutton && typeof plugin.popupbutton !== "undefined"){
-            checkClassandInstance(plugin)
-                .then(([main, ...etc])=>main.result)
-                .then(([isInjected, isInitialized])=>{if(isInitialized) document.getElementById(plugin.popupbutton).disabled=true; else document.getElementById(plugin.popupbutton).disabled=false;})
-        }
-    }
+    // Init Setup
+    checkClassandInstance(PLUGINS.initiative)
+        .then(([isInjected, isInitialized])=>{
+            document.getElementById("generateInit").disabled=isInitialized;
+        });
+
+    // CopyToken Setup
+    executeScript(()=>MTE.getSelectedToken())
+        // getToken will return a blank token if invalid, so we have to check for that
+        .then(result=>document.getElementById("copyToken").disabled = !(result._id && typeof result._id !== "undefined"));
+    
+    chrome.storage.session.get(["copyToken"])
+        .then(result=>result.copyToken)
+        .then(copyToken=>{
+                if(!copyToken || typeof copyToken == "undefined") document.getElementById("pasteToken").disabled = true;
+            }
+        );
 }
 
 /** CALLBACKS */
@@ -129,11 +147,37 @@ function generateInit(){
     document.getElementById("generateInit").disabled = true;
 }
 
+/**
+ * Copies the currently selected token's information into session storage
+ */
+function copyToken(){
+    executeScript(()=>MTE.getSelectedToken())
+        .then(copyToken=>{
+            if(!copyToken) return;
+            return chrome.storage.session.set({copyToken: JSON.stringify(copyToken)});
+        })
+        .then(document.getElementById("pasteToken").disabled = false);
+    }
+
+/**
+ * Pulls previously stored token information from session storage and passes it to the MTE's CopyToken object
+ */
+function pasteToken(){
+    let result;
+    chrome.storage.session.get(["copyToken"])
+        .then(storage=>{
+            result = JSON.parse(storage.copyToken);
+            executeScript((token)=>MTE.storage._actions['characters/add'](MTE.storage, token), [result]);
+        })
+}
+
 /** INITIAL SETUP */
 // Hookup Buttons
 for(let plugin of Object.values(PLUGINS)){
-    if(plugin.popupbutton && typeof plugin.popupbutton !== "undefined"){
-        document.getElementById(plugin.popupbutton).onclick = this[plugin.popupbutton];
+    if(plugin.popupbuttons && typeof plugin.popupbuttons !== "undefined"){
+        for(let button of plugin.popupbuttons){
+            document.getElementById(button).onclick = this[button];
+        }
     }
 }
 
@@ -144,4 +188,7 @@ chrome.tabs.query({active: true, currentWindow:true})
     TABID = tabs[0].id;
     })
     .then(()=>checkAndEstablishPlugin(PLUGINS.app))
+    .then(()=>checkAndEstablishPlugin(PLUGINS.copytoken))
     .then(()=>updateUI());
+
+console.log("done");

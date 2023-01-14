@@ -4,7 +4,7 @@
   "version": "1.0",
   "manifest_version": 3,
   "permissions":[
-    "scripting", "activeTab"
+    "scripting", "activeTab", "storage"
   ],
   "action":{
     "default_title":"Mythic Table Extension",

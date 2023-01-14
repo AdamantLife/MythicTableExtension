@@ -304,8 +304,18 @@ class InitiativeTracker{
             else current = current.parentElement;
         }
         let token = MTE.getToken(row.dataset.id);
-        MTE.store._modules.root._children.tokens.state.selectedToken = token
-        // MTE.store._modules.root._children.collection
+        // Populates the Macro Bar
+        MTE.store._modules.root._children.tokens.state.selectedToken = token;
+        // Deselect all other tokens first
+        MTE.deselectAllTokens();
+        // Paints the selection square/ring on the toke
+        MTE.getPlayTokenByTokenId(token._id).selected = true;
+
+        /** DEVNOTE- The below appear to have no effect on the UI
+         * MTE.store.state.tokens.selectToken = token;
+         * MTE.store.commit('gamestate/selectedTokenUpdate',token._id);
+        */
+        
     }
 }
 
