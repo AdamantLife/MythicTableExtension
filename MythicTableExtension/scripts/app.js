@@ -16,10 +16,11 @@ class MythicTableExtension{
         //          It seems to be valid at page load and later is deleted from Konva.ids
         let pool = window.Konva.ids.tokenGroup;
         if(typeof pool == "undefined") pool = window.Konva.ids.outerContainerCircle;
-        // window.Konva.ids.tokenGroup.parent.parent.parent.parent.parent.parent.attrs.container.__vue__.$options.parent.$options.parent.$options.parent.$options.store._makeLocalGettersCache;
-        // Konva.ids.outerContainerCircle.parent.parent.parent.parent.parent.parent.attrs.container.__vue__.$options.parent.$options.parent.$options.parent.$options.store._makeLocalGettersCache
-        return pool.parent.parent.parent.parent.parent.parent.attrs.container.__vue__.$options.parent.$options.parent.$options.parent.$options.store;
-        
+        return pool.parent.parent.parent.parent.parent.parent.attrs.container.__vue__.$options.parent.$options.parent.$options.parent.$options.store;        
+    }
+
+    get state(){
+        return this.store._modules.root.state
     }
 
     get cache(){
@@ -32,6 +33,10 @@ class MythicTableExtension{
 
     get playTokens(){
         return Konva.ids.tokenGroup.parent.parent.parent.parent.parent.parent.attrs.container.__vue__.$options.parent.$options.parent.$options.parent.$options.store._vm._watchers[0].deps[0].subs[0].deps[1].subs[1].deps[0].subs[2].deps[2].subs[3].deps[0].subs[0].vm.$options.parent.$options.parent.$options.parent.$options._parentVnode.componentOptions.children[0].componentOptions.children[0].elm.__vue__.$options._renderChildren[0].elm.__vue__.$children[0].$options._parentVnode.componentOptions.children[0].elm.__vue__._konvaNode.parent.parent.children[1].VueComponent.$options.parent._watcher.deps[0].subs[0].deps[3].subs[4].deps[4].subs[5].deps[0].subs[0].vm.$options.parent.$options.parent.$options.parent.$options._parentVnode.componentOptions.children[0].elm.__vue__.$options._renderChildren[0].elm.__vue__.$children[1].$children[1]._watcher.deps[2].subs[0].vm._watchers[0].deps[5].subs[6].deps[0].subs[0].vm._watcher.deps[1].subs[2].deps[0].subs[0].deps[3].subs[1].vm._watcher.deps[0].subs[0].deps[6].subs[7].deps[7].subs[1].deps[0].subs[2].deps[8].subs[2].deps[9].subs[3].deps[2].subs[9].deps[1].subs[4].deps[1].subs[5].deps[4].subs[6].vm.$refs.playTokens
+    }
+
+    get campaign(){
+        return this.state.campaigns.activeCampaign;
     }
 
     /**
@@ -74,7 +79,6 @@ class MythicTableExtension{
          * @returns 
          */
         function check(mutation,state){
-            console.log(mutation);
             if(!typefilters) return callback(mutation, state);
             for(let filter of tfilters){
                 if(filter.test(mutation.type)) return callback(mutation, state)

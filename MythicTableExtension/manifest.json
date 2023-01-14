@@ -3,6 +3,9 @@
   "description": "Adds functionality to the Mythic Table vtt",
   "version": "1.0",
   "manifest_version": 3,
+  "background":{
+    "service_worker": "background.js"
+  },
   "permissions":[
     "scripting", "activeTab", "storage"
   ],
@@ -15,6 +18,9 @@
       "matches":["*://fp.mythictable.com/play/*/debug"],
       "css":["css/initiative.css"]
     }
-  ]
+  ],
+  "externally_connectable": {
+    "matches": ["*://fp.mythictable.com/play/*/debug"]
+  }
   
 }

@@ -99,7 +99,6 @@ class InitiativeTracker{
     removeToken(tokenid){
         // Get the token's row
         let row = this.initList.querySelector(`tr[data-id="${tokenid}"]`);
-        if(!row) return console.log(tokenid);
         // If the token is current on initiative, increment to the next token
         if(row.classList.contains("current")) this.increment();
         // remove row

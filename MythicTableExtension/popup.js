@@ -25,11 +25,11 @@ const PLUGINS = {
         instancevariable: "MTEINIT",
         popupbuttons: ["generateInit"]
     },
-    "copytoken":{
-        file:"scripts/copytoken.js",
-        classname: "CopyToken",
+    "copycharacter":{
+        file:"scripts/copycharacter.js",
+        classname: "CopyCharacter",
         instancevariable: "MTECOPY",
-        popupbuttons: ["copyToken","pasteToken"]
+        popupbuttons: ["pasteCharacter"]
     }
 };
 
@@ -124,15 +124,11 @@ function updateUI(){
             document.getElementById("generateInit").disabled=isInitialized;
         });
 
-    // CopyToken Setup
-    executeScript(()=>MTE.getSelectedToken())
-        // getToken will return a blank token if invalid, so we have to check for that
-        .then(result=>document.getElementById("copyToken").disabled = !(result._id && typeof result._id !== "undefined"));
-    
-    chrome.storage.session.get(["copyToken"])
-        .then(result=>result.copyToken)
-        .then(copyToken=>{
-                if(!copyToken || typeof copyToken == "undefined") document.getElementById("pasteToken").disabled = true;
+    // CopyCharacter Setup
+    chrome.storage.session.get(["copyCharacter"])
+        .then(result=>result.copyCharacter)
+        .then(copyCharacter=>{
+                if(!copyCharacter || typeof copyCharacter == "undefined") document.getElementById("pasteCharacter").disabled = true;
             }
         );
 }
@@ -147,28 +143,16 @@ function generateInit(){
     document.getElementById("generateInit").disabled = true;
 }
 
-/**
- * Copies the currently selected token's information into session storage
- */
-function copyToken(){
-    executeScript(()=>MTE.getSelectedToken())
-        .then(copyToken=>{
-            if(!copyToken) return;
-            return chrome.storage.session.set({copyToken: JSON.stringify(copyToken)});
-        })
-        .then(document.getElementById("pasteToken").disabled = false);
-    }
 
 /**
- * Pulls previously stored token information from session storage and passes it to the MTE's CopyToken object
+ * Pulls previously stored Character information from session storage and passes it to the MTE's CopyCharacter object
  */
-function pasteToken(){
+function pasteCharacter(){
     let result;
-    chrome.storage.session.get(["copyToken"])
+    chrome.storage.session.get(["copyCharacter"])
         .then(storage=>{
-            result = JSON.parse(storage.copyToken);
-            executeScript((token)=>MTE.storage._actions['characters/add'](MTE.storage, token), [result]);
-        })
+            executeScript((character)=>MTECOPY.pasteCharacter(character), [storage.copyCharacter]);
+        });
 }
 
 /** INITIAL SETUP */
@@ -188,7 +172,7 @@ chrome.tabs.query({active: true, currentWindow:true})
     TABID = tabs[0].id;
     })
     .then(()=>checkAndEstablishPlugin(PLUGINS.app))
-    .then(()=>checkAndEstablishPlugin(PLUGINS.copytoken))
+    .then(()=>checkAndEstablishPlugin(PLUGINS.copycharacter))
     .then(()=>updateUI());
 
 console.log("done");
