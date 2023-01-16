@@ -10,6 +10,10 @@ class CopyCharacter{
         if(this.currentEditCharacter){
             // We want to insert copy button between cancel and delete, so we'll get ref to the delete button
             let deletebutton = document.querySelector("div.action-buttons[data-v-62ea9887]>button.delete");
+            // When creating a character or selecting a character you do not own you do not get a delete button
+            // Since we can't distinguish between the two, we'll do nothing and just disallow the user from
+            // copying tokens/characters they do not own
+            if(!deletebutton) return;
             // Note- Copy Button is 15px to match .modal-button's font-size 
             deletebutton.insertAdjacentHTML('beforebegin', `<button data-v-62ea9887 class="modal-button selected copy" style="background:#0cb72d;width:auto;padding:0 10px;border:none">
             <svg style="color: white; height: 15px;" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 115.77 122.88" xml:space="preserve">
@@ -22,9 +26,12 @@ class CopyCharacter{
         };
     }
 
+    /**
+     * Stores the character in the Extension's Session Storage Area
+     */
     copyCharacter(){
-        let id = "bdodogkngbjcbniinimifempelebnamj";
-        chrome.runtime.sendMessage(id, {copyCharacter: this.currentEditCharacter}, {}, 
+        chrome.runtime.sendMessage(MTE.extensionId, {copyCharacter: this.currentEditCharacter}, {}, 
+            // Callback to disable the copy button
             ()=>{
                 let copybutton = document.querySelector("div.action-buttons[data-v-62ea9887]>button.copy");
                 if(copybutton) copybutton.disabled = true;

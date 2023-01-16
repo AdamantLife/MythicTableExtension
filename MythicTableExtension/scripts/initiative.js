@@ -2,22 +2,64 @@ class InitiativeTracker{
     static CURRENTRE = /@currentcombat\s*$/im
     static INITRE = /@initiative:\s*(?<initiative>\d+)\s*$/im;
     static INITBONUSRE = /@initiative bonus:\s*(?<initbonus>[+-]?\d+)\s*$/im;
+    static GMINIT = /@currentinitiative:\s+(?<id>\w*)\s*$/im;
+
     constructor(){
+        this.state = true;
         // Change listener
         MTE.subscribe("init", this.updateInitiative.bind(this), ["collections/add", "collections/remove", "collections/patch"]);
+        // Our triggers are getting duplicated when we change maps, so we're disabling the tracker until the map is loaded
+        MTE.subscribeAction("leavingcampaign", this.disable.bind(this), ["gamestate/clear"]);
+        // When we load a new campaign (which seems to be what setBase indicates), we need to recreate the #initList
+        MTE.subscribeAction("newCampaign", this.checkLoadInit.bind(this), ["gamestate/setBase"]);
 
+        // DEVNOTE- This is assumed to be safe because MTE is only ever initialized on a Map
+        //      If this changes in the future, we may need to change how we do this
+        this.checkLoadInit();
+    }
+
+    get initList(){ return document.getElementById("initList");}
+
+    disable(){
+        /**
+         * DEVNOTE - Since everything is asynchronous, we need to disable the Tracker when we change
+         *      campaigns and only reenable it AFTER setupInit has been called again, otherwise we
+         *      recieve events to add tokens while the campaign is being loaded which then cannot be
+         *      added (resulting in an error) because setupInit has not completed.
+         */
+        this.state = false;
+    }
+
+    /**
+     * Checks to make sure the InitList is setup on the DOM
+     * 
+     * DEVNOTES-
+     *          Does not check that all tokens are registered
+     *          TODO: We may want to have this check performed prior to Initiative management/manipulation functions
+     */
+    checkLoadInit(){
+        if(!this.initList) this.setupInit();
+        // checkLoadInit only gets called on valid pages, so we can enable are state regardless
+        if(!this.state) this.state = true;
+    }
+
+    /**
+     * Adds the InitiativeList to the DOM
+     */
+    setupInit(){
         // Setup
         window.document.querySelector("div.sidebar-content").insertAdjacentHTML('beforeend', `
 <div data-v-546a6080 class="window">
     <div data-v-546a6080 class="header">
         <div class="init-header">
             <div>Initiative</div>
-            <svg data-v-546a6080 viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" data-original-title="null" class=" has-tooltip decrement">
-                <polygon data-v-546a6080 points="2,12.53 7.5,3 13,12.53" fill="none" stroke="white"></path>
-            </svg>
-            <svg data-v-546a6080 viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" data-original-title="null" class=" has-tooltip increment">
-                <polygon data-v-546a6080 points="2,3 7.5,12.53 13,3" fill="none" stroke="white"></path>
-            </svg>
+            ${MTE.isGM ? `
+        <svg data-v-546a6080 viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" data-original-title="null" class=" has-tooltip decrement">
+            <polygon data-v-546a6080 points="2,12.53 7.5,3 13,12.53" fill="none" stroke="white"></path>
+        </svg>
+        <svg data-v-546a6080 viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" data-original-title="null" class=" has-tooltip increment">
+            <polygon data-v-546a6080 points="2,3 7.5,12.53 13,3" fill="none" stroke="white"></path>
+        </svg>` : ""}
         </div>
     </div>
     <div data-v-546a6080 class="content">
@@ -31,23 +73,22 @@ class InitiativeTracker{
         // Minimizes/Expands window
         window.document.querySelector("div.sidebar-content>div.window:last-of-type>div.header>div").onclick=(event)=>event.target.parentElement.parentElement.parentElement.classList.toggle("hidden");
         // Increments/decrements Initiative
-        window.document.querySelector("div.sidebar-content>div.window:last-of-type>div.header svg.increment").onclick=(event)=>this.increment();
-        window.document.querySelector("div.sidebar-content>div.window:last-of-type>div.header svg.decrement").onclick=(event)=>this.decrement();
-        let initList = this.initList;
+        // (only available for GM)
+        if(MTE.isGM){
+            window.document.querySelector("div.sidebar-content>div.window:last-of-type>div.header svg.increment").onclick=(event)=>{this.increment(); event.preventDefault(); event.stopPropagation(); return false;}
+            window.document.querySelector("div.sidebar-content>div.window:last-of-type>div.header svg.decrement").onclick=(event)=>{this.decrement(); event.preventDefault(); event.stopPropagation(); return false;}
+        }
         // Selects the token on the battlefield
-        window.document.querySelector("#initList").onclick=this.selectToken.bind(this);
+        this.initList.onclick=this.selectToken.bind(this);
 
         // Prepopulate with tokens
         for(let token of MTE.getTokens()){
             this.addToken(token);
         }
         this.resort();
-        // Start initiative (if we have tokens)
-        let firstInit = this.getNextVisibleToken(null)
-        if(firstInit) firstInit.classList.toggle("current");
+        
+        this.updateCurrent();
     }
-
-    get initList(){ return document.getElementById("initList");}
 
     /**
      * Parses a token's description property to establish its initiative and initiative bonus
@@ -75,21 +116,32 @@ class InitiativeTracker{
         return [current, init, bonus];
     }
 
+    clearInit(){
+        for(let ele of this.initList.querySelectorAll("tr.current")) ele.classList.remove("current");
+    }
+
     /**
      * Adds a token to the Initiative Tracker
      * @param {Object} token - The Token to add
      */
     addToken(token){
         let [current,init,bonus] = this.parseDescription(token);
+        // Don't add tokens which are not current
+        if(!current) return;
         this.initList.insertAdjacentHTML('beforeend', `<tr data-id="${token._id}" data-init="${init}" data-bonus="${bonus}"><td><img src="${token.image}"/></td><td>${token.name}</td><td title="${bonus}">${init}</td></tr>`)
-        // Hide if not current
-        if(!current){
-            this.initList.lastElementChild.style.display = "none";
-        }
         // Otherwise, hide if private and not gm
-        else if(token.private && !MTE.isGM){
+        if(token.private && !MTE.isGM){
             this.initList.lastElementChild.style.display = "none";
         }
+        this.resort();
+        /** // Otherwise it is visible, so check if we have any other tokens in our list
+        else if(!this.initList.querySelector("tr.current")){
+            // If we don't already have a current row that implies the list was empty
+            // so make this the current
+            this.increment();
+        }
+        */
+        
     }
 
     /**
@@ -99,6 +151,8 @@ class InitiativeTracker{
     removeToken(tokenid){
         // Get the token's row
         let row = this.initList.querySelector(`tr[data-id="${tokenid}"]`);
+        // Token may not be part of current combat, so do nothing
+        if(!row) return;
         // If the token is current on initiative, increment to the next token
         if(row.classList.contains("current")) this.increment();
         // remove row
@@ -114,6 +168,11 @@ class InitiativeTracker{
         // Get current Table Token and Row Token for comparison
         let token = MTE.getToken(tokenid);
         let row = window.document.querySelector(`#initList tr[data-id="${tokenid}"]`);
+        // The token was not @currentcombat, then add it and resort
+        if(!row){
+            this.addToken(token);
+            return this.resort();
+        }
         // Parse out Table and Row init stats
         let [current, init, bonus] = this.parseDescription(token);
         let [rowinit, rowbonus] = [row.dataset.init, row.dataset.bonus];
@@ -178,6 +237,8 @@ class InitiativeTracker{
      * @returns 
      */
     updateInitiative(mutation, state){
+        if(!this.state) return;
+        if(mutation.type == "collections/patch" && mutation.payload.collection == "characters") return this.updateCurrent();
         if(mutation.type == "collections/add" && mutation.payload.collection == "tokens") return this.addToken(mutation.payload.item);
         if(mutation.type == "collections/remove" && mutation.payload.collection == "tokens") return this.removeToken(mutation.payload.id);
         if(mutation.type == "collections/patch" && mutation.payload.collection == "tokens") return this.updateToken(mutation.payload.id);
@@ -185,6 +246,49 @@ class InitiativeTracker{
 
     updateInitiativeAction(action, state){
         console.log(action, state);
+    }
+
+    getGMInfo(){
+        let out = {currentinitiative: null};
+        let gm = MTE.GMCharacter;
+        if(!gm) return out
+        // Current Initiative
+        let result = InitiativeTracker.GMINIT.exec(gm.description);
+        if(result) out.currentinitiative = result.groups.id;
+
+        return out;
+    }
+
+    updateGMInfo(options){
+        let character = MTE.GMCharacter;
+        let description = character.description;
+        let initiatldescription = description;
+        // Update Current Init
+        if(options.currentinitiative && typeof options.currentinitiative !== "undefined"){
+            description = description.replace(InitiativeTracker.GMINIT, `@currentinitiative: ${options.currentinitiative}`);
+        }
+        // Don't bother updating if nothing happens
+        /**
+         * DEVNOTE- Updating with no changes raises an error on Mythic Table's side which
+         *      doesn't actually affect us, but we'll avoid the drama anyway
+         */
+        if(description == initiatldescription) return;
+        character.description = description;
+        MTE.store._actions['characters/update'][0](character);
+    }
+
+    updateCurrent(){
+        let info = this.getGMInfo();
+        this.clearInit();
+        if(!info.currentinitiative) return;
+        
+        let newcurrent = this.initList.querySelector(`tr[data-id="${info.currentinitiative}"]`);
+        // The given token has since been removed
+        if(!newcurrent) return this.updateGMInfo({currentinitiative: ""});
+        newcurrent.classList.add("current");
+        newcurrent.scrollIntoView();
+        // Spoofing an event for simplicity's sake
+        this.selectToken({target: newcurrent})
     }
 
     /**
@@ -218,73 +322,49 @@ class InitiativeTracker{
     }
     
     /**
-     * Iterates forward or backwards through the initList until it comes upon a visible row.
-     * If no rows are visible, returns null
-     * @param {Element} start - The initList row to start from
-     * @param {Number} [direction=1] - Whether to iterate forwards or backwards:
-     *      if direction >= 0, then forwards, otherwise backwards.
-     * @returns {Element|null} - The next visible row, or null if no rows are visible.
-     */
-    getNextVisibleToken(start, direction = 1){
-        if(!start || typeof start == "undefined"){
-            // Starting from the opposite end since the first iteration of the while-loop
-            // will automatically iterate the list
-            if(direction >= 0) start = this.initList.lastElementChild;
-            else start = this.initList.firstElementChild;
-        }
-        let current = start;
-        let newcurrent = null;
-
-        while(!newcurrent){
-            // Increment element
-            if(direction >= 0) current = current.nextElementSibling;
-            // Decrement element
-            else current = current.previousElementSibling;
-            
-            // End- or Start of List, so jump to the opposite end
-            if(!current){
-                if(direction >= 0) current = this.initList.firstElementChild;
-                else current = this.initList.lastElementChild;
-            }
-            // Newly incremented/decremented row is visible and therefore can be selected
-            if(current.style.display !== "none") newcurrent = current;
-            // current is not displayed but we have incremented/decremented back
-            // to start, so there is no possible new current
-            else if(current == start) break;
-        }
-        return newcurrent;
-    }
-
-    /**
      * Increments the current Token to the next Token in initiative order
      */
     increment(){
-        let current = this.initList.querySelector("tr.current");
-        // No current row (presumably because there are no rows)
-        if(!current) return;
-        // Remove current 
-        current.classList.toggle("current");
-
-        // Increment element
-        let newcurrent = this.getNextVisibleToken(current);
-        newcurrent.classList.toggle("current");
-        newcurrent.scrollIntoView();
+        let info = this.getGMInfo();
+        let ele = this.initList.querySelector(`tr[data-id="${info.currentinitiative}"]`);
+        let newele;
+        // If GM info doesn't have anything assigned or the corresponding does not exist
+        // then get the first element
+        if(!ele){
+            newele = this.initList.firstElementChild;
+            // The list is empty, so update the GM Info
+            if(!newele) return this.updateGMInfo({currentinitiative: null});
+        }else{
+            // Otherwise, get the next element
+            newele = ele.nextElementSibling;
+            // We're at the bottom of the list, so loop back up to the top
+            if(!newele) newele = this.initList.firstElementChild;
+        }
+        
+        this.updateGMInfo({currentinitiative: newele.dataset.id});
     }
 
     /**
      * Reverts Initiative to the previous Token in initiative order
      */
     decrement(){
-        let current = this.initList.querySelector("tr.current");
-        // No current row (presumably because there are no rows)
-        if(!current) return;
-        // Remove current 
-        current.classList.toggle("current");
+        let info = this.getGMInfo();
+        let ele = this.initList.querySelector(`tr[data-id="${info.currentinitiative}"]`);
+        let newele;
+        // If GM info doesn't have anything assigned or the corresponding does not exist
+        // then get the first element
+        if(!ele){
+            newele = this.initList.firstElementChild;
+            // The list is empty, so update the GM Info
+            if(!newele) return this.updateGMInfo({currentinitiative: null});
+        }else{
+            // Otherwise, get the previous element
+            newele = ele.previousElementSibling;
+            // We're at the top of the list, so loop back up to the bottom
+            if(!newele) newele = this.initList.lastElementChild;
+        }
         
-        // Decrement element
-        let newcurrent = this.getNextVisibleToken(current, -1);
-        newcurrent.classList.toggle("current");
-        newcurrent.scrollIntoView();
+        this.updateGMInfo({currentinitiative: newele.dataset.id});
     }
 
     /**
@@ -303,12 +383,19 @@ class InitiativeTracker{
             else current = current.parentElement;
         }
         let token = MTE.getToken(row.dataset.id);
-        // Populates the Macro Bar
-        MTE.store._modules.root._children.tokens.state.selectedToken = token;
+
         // Deselect all other tokens first
         MTE.deselectAllTokens();
+        // This is a player and token is hidden, so don't select it
+        if(token.private && !MTE.isGM) return;
+        // Populates the Macro Bar
+        MTE.state.tokens.selectedToken = token;
         // Paints the selection square/ring on the toke
-        MTE.getPlayTokenByTokenId(token._id).selected = true;
+        let playToken = MTE.getPlayTokenByTokenId(token._id)
+        // playTokens are only tokens which are visible on the map
+        // Therefore our token in initiatve may not have an associated playToken
+        if(!playToken || typeof playToken == "undefined") return;
+        playToken.selected = true;
 
         /** DEVNOTE- The below appear to have no effect on the UI
          * MTE.store.state.tokens.selectToken = token;

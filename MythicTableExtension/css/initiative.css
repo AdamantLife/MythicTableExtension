@@ -40,4 +40,7 @@ div.initiative table{
         #initList img{
             width:3em;
         }
+    #initList tr>td:nth-of-type(3){
+        text-align: right;
+    }
     

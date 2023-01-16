@@ -8,6 +8,8 @@
  * @property {String[]} [popupbuttons] - An array of ids of the plugin's asociated buttons in the popup ui (if it has any)
  */
 
+var URLMATCH = /.*?mythictable.com\/play\/.*?\/debug/;
+
 // DEVNOTE- !important Plugins must register their constructor on window in order for them to be checked for later
 
 // Tab id of the current (active) tab
@@ -23,7 +25,7 @@ const PLUGINS = {
         file: "scripts/initiative.js",
         classname: "InitiativeTracker",
         instancevariable: "MTEINIT",
-        popupbuttons: ["generateInit"]
+        popupbuttons: []
     },
     "copycharacter":{
         file:"scripts/copycharacter.js",
@@ -118,31 +120,24 @@ function getSubscriptions(){
  * Updates the Popup UI based on the current state of the Extension App (MTE)
  */
 function updateUI(){
-    // Init Setup
-    checkClassandInstance(PLUGINS.initiative)
-        .then(([isInjected, isInitialized])=>{
-            document.getElementById("generateInit").disabled=isInitialized;
-        });
-
     // CopyCharacter Setup
     chrome.storage.session.get(["copyCharacter"])
         .then(result=>result.copyCharacter)
         .then(copyCharacter=>{
                 if(!copyCharacter || typeof copyCharacter == "undefined") document.getElementById("pasteCharacter").disabled = true;
+                else document.getElementById("copyCharacter").innerText = copyCharacter.name;
             }
         );
 }
 
-/** CALLBACKS */
-
 /**
- * Injects the Initiative Script into the DOM
+ * In order to save to the extension's storage, the injected app needs to know the extension id
  */
-function generateInit(){
-    checkAndEstablishPlugin(PLUGINS.initiative);
-    document.getElementById("generateInit").disabled = true;
+function updateExtensionID(){
+    return executeScript((id)=>{MTE.extensionId = id;},[chrome.runtime.id]);
 }
 
+/** CALLBACKS */
 
 /**
  * Pulls previously stored Character information from session storage and passes it to the MTE's CopyCharacter object
@@ -165,14 +160,28 @@ for(let plugin of Object.values(PLUGINS)){
     }
 }
 
+// This object allows us to interrupt an .then() chain
+// Credit to: https://stackoverflow.com/a/45339587/
+let breakpoint = {then: ()=>{}};
+
 // Get active tab
 chrome.tabs.query({active: true, currentWindow:true})
-    .then((tabs)=>{
+.then((tabs)=>{
+    if(!URLMATCH.exec(tabs[0].url)){
+        // Clear popup and replace with a message
+        while(document.body.lastElementChild) document.body.lastElementChild.remove();
+        document.body.insertAdjacentHTML("beforeend", `<h3 style="text-align:center;">Navigate to a Campaign</h3>`);
+        return breakpoint;
+    }
     // Save TABID for future use
     TABID = tabs[0].id;
-    })
-    .then(()=>checkAndEstablishPlugin(PLUGINS.app))
-    .then(()=>checkAndEstablishPlugin(PLUGINS.copycharacter))
-    .then(()=>updateUI());
-
-console.log("done");
+})
+/** DEVNOTE- Currently loading plugins individually because we originally
+ *      were going to load them on-request by the user- however we have
+ *      since shifted from that, so we may want to reorganize this
+ */
+.then(()=>checkAndEstablishPlugin(PLUGINS.app))
+.then(()=>checkAndEstablishPlugin(PLUGINS.initiative))
+.then(()=>checkAndEstablishPlugin(PLUGINS.copycharacter))
+.then(()=>updateUI())
+.then(()=>updateExtensionID());

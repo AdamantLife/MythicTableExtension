@@ -4,54 +4,111 @@
  * Core Extnension functionality
  */
 
+let GMCHARACTER = {
+    /** DEVNOTE - _id cannot actually be set; it will be overridden when the character is added */
+    "_id": "ffffffffffffffffffffffff",
+    "_collection": "characters",
+    "_userid": "",
+    "_campaign": "",
+    "_character_version": 1,
+    "name": "GMCHARACTER",
+    "description": "@currentinitiative: ",
+    "image": "",
+    "borderMode": "coin",
+    "borderColor": "",
+    "tokenSize": 2,
+    "icon": "",
+    "private": true,
+    "macros": [],
+    "version": "0.0.1"
+};
+
 class MythicTableExtension{
     constructor(){
         this.subscriptions = {};
-        this.initVM();
+        this._store = null;
+        this._playTokens = null;
+        this.extensionId = null;
 
+        this.confirmGM();
+
+        // "setBase" seems to indicate that a campaign has been fully initialized
+        // When a new campaign is loaded, we need to make sure that the GM Token is present
+        this.subscribeAction("checkgm", this.confirmGM.bind(this), ["gamestate/setBase"]);
+        // When the user leaves a campaign, we clear our references to that campaign's store/playtokens
+        // Note- we don't have to listen for the user to load a new campaign because we regenerate those
+        //      locations on-demand
+        this.subscribeAction("leavecampaign", this.clearLocations.bind(this), ["gamestate/clear"]);
+        // this.subscribe("debug", console.log);
+        //this.subscribeAction("actiondebug", console.log);
     }
 
     get store(){
-        // DEVNOTE- Not sure why tokenGroup disappears/what triggers its disappearance
-        //          It seems to be valid at page load and later is deleted from Konva.ids
-        let pool = window.Konva.ids.tokenGroup;
-        if(typeof pool == "undefined") pool = window.Konva.ids.outerContainerCircle;
-        return pool.parent.parent.parent.parent.parent.parent.attrs.container.__vue__.$options.parent.$options.parent.$options.parent.$options.store;        
+        /**
+         * DEVNOTE - After a lot of bodging, we're now defaulting to recurseFind because there
+         *      are just too many possible locations for store to bother listing them all.
+         */
+        
+        let result = recurseFind("store");
+        return result[result.length-1];
     }
 
     get state(){
-        return this.store._modules.root.state
+        return this.store.state
     }
 
     get cache(){
         return this.store._makeLocalGettersCache;
     }
 
+    get myProfile(){
+        return this.state.profile.me;
+    }
+
     get isGM(){
         return this.cache['hasPermission/'].getGameMasterStatus;
     }
 
+
     get playTokens(){
-        return Konva.ids.tokenGroup.parent.parent.parent.parent.parent.parent.attrs.container.__vue__.$options.parent.$options.parent.$options.parent.$options.store._vm._watchers[0].deps[0].subs[0].deps[1].subs[1].deps[0].subs[2].deps[2].subs[3].deps[0].subs[0].vm.$options.parent.$options.parent.$options.parent.$options._parentVnode.componentOptions.children[0].componentOptions.children[0].elm.__vue__.$options._renderChildren[0].elm.__vue__.$children[0].$options._parentVnode.componentOptions.children[0].elm.__vue__._konvaNode.parent.parent.children[1].VueComponent.$options.parent._watcher.deps[0].subs[0].deps[3].subs[4].deps[4].subs[5].deps[0].subs[0].vm.$options.parent.$options.parent.$options.parent.$options._parentVnode.componentOptions.children[0].elm.__vue__.$options._renderChildren[0].elm.__vue__.$children[1].$children[1]._watcher.deps[2].subs[0].vm._watchers[0].deps[5].subs[6].deps[0].subs[0].vm._watcher.deps[1].subs[2].deps[0].subs[0].deps[3].subs[1].vm._watcher.deps[0].subs[0].deps[6].subs[7].deps[7].subs[1].deps[0].subs[2].deps[8].subs[2].deps[9].subs[3].deps[2].subs[9].deps[1].subs[4].deps[1].subs[5].deps[4].subs[6].vm.$refs.playTokens
+        /**
+         * DEVNOTE- We needed to switch to recursiveFind because playTokens' location is too arbitrary
+         */
+        if(!this._playTokens){
+            let result = recurseFind("playTokens");
+            this._playTokens = result[result.length-1]
+        }
+        return this._playTokens;
     }
 
     get campaign(){
         return this.state.campaigns.activeCampaign;
     }
 
-    /**
-     * DEVNOTES-
-     *          This function only exists because using the playTokens reference above without first recursively
-     *      finding it fails on the first reference to deps[0].
-     *          Additionally, we cannot store any reference to any part of the resulting path object because it
-     *      results in a memory leak which crashes the whole web page; I have no explanation for why this is
-     *      occurring- it just does. For example, storing path[path.length-3] (the vm) or [path-2] (vm.$refs)
-     *      results in infinite memory usage and crashes the web page.
-     */
-    initVM(){
-        recurseFind("playTokens");
+    get GMCharacter(){
+        return this.getCharacterByName(GMCHARACTER.name);
     }
 
+    confirmGM(){
+        if(!this.isGM) return false;
+        if(!this.GMCharacter) this.createGMCharacter();
+    }
+
+    createGMCharacter(){
+        let gm = Object.assign({},GMCHARACTER);
+        gm._campaign = this.campaign.id;
+        gm._userid = this.myProfile.id
+        // Actions are actually arrays (for some reason)
+        this.store['_actions']['characters/add'][0](gm);
+    }
+    
+    /**
+     * Clears our location caches (normally because we expect them to change by changing campaigns)
+     */
+    clearLocations(){
+        this._store = null;
+        this._playTokens = null;
+    }
 
     /**
      * Calls store.subscribe.
@@ -140,6 +197,26 @@ class MythicTableExtension{
         delete this.subscriptions[name];
     }
 
+    getCharacters(){
+        return this.cache['characters/'].getCharacters
+    }
+
+    getCharacter(characterId){
+        for(let character of this.getCharacters()){
+            if(character._id == characterId) return character;
+        }
+        return false;
+        // For whatever reason, this does not work
+        //return this.cache['characters/'].getCharacter(characterId);
+    }
+
+    getCharacterByName(characterName){
+        for(let character of this.getCharacters()){
+            if(character.name == characterName) return character;
+        }
+        return false;
+    }
+
     /**
      * Returns an array of all tokens
      * @returns {Object[]} - An array of the tokens on the list
@@ -170,6 +247,7 @@ class MythicTableExtension{
         for(let token of this.playTokens){
             token.selected = false;
         }
+        this.state.tokens.selectedToken = {};
     }
 
     getCharacterEditDiv(){
@@ -190,12 +268,21 @@ function recurseFind(target, start = window){
 
     // Adding a context to provide lifetime feedback
     function recursion(target, key, path, memo){
-        // base case
-        if(key == target) return path;
         let obj;
         // In case of cross-origin objects, this check wil fail and we can't continue further
         try{
             obj = path[path.length-1];
+
+            // Recursion Base Case
+            // Check if key is our target name
+            // and also check that obj actually has a value
+            /**
+             * DEVNOTE- We are checking for a value because we're using RecurseFind to locate
+             *      store: there is atleast one other store reference in the scope, but that one
+             *      evaluates to null and is not the one we want
+             */
+            if(key == target && (obj && typeof obj !== 'undefined')) return path;
+
             // Non Recursable
             if(typeof obj !== "object" || obj === null) return;
         }catch(e){
@@ -210,12 +297,13 @@ function recurseFind(target, start = window){
             let newpath = [...path, value];
             // Add all paths found by recursion to results (may be empty array)
             let result = recursion(target, key, newpath, memo);
-            if(result) return result
+            if(result && typeof result !== "undefined") return result
         }
     }
 
     // Intitial path starts with the window
     let path = recursion(target, start, [start], []);
+    if(typeof path == "undefined") return
     if(!path.length) return
     return path;
 }
