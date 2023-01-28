@@ -32,6 +32,12 @@ const PLUGINS = {
         classname: "CopyCharacter",
         instancevariable: "MTECOPY",
         popupbuttons: ["pasteCharacter"]
+    },
+    "hpindicator":{
+        file:"scripts/hpindicator.js",
+        classname: "HPIndicator",
+        instancevariable: "MTEHP",
+        popupbuttons:[]
     }
 };
 
@@ -183,5 +189,6 @@ chrome.tabs.query({active: true, currentWindow:true})
 .then(()=>checkAndEstablishPlugin(PLUGINS.app))
 .then(()=>checkAndEstablishPlugin(PLUGINS.initiative))
 .then(()=>checkAndEstablishPlugin(PLUGINS.copycharacter))
+.then(()=>checkAndEstablishPlugin(PLUGINS.hpindicator))
 .then(()=>updateUI())
 .then(()=>updateExtensionID());

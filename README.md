@@ -7,6 +7,7 @@ A Browser Extension to temporarily add functionality to Mythic Table while it's 
 * <a href="#usage">Basic Usage</a>
   * <a href="#initiative">Initiative Tracker</a>
   * <a href="#copy">Copy Character</a>
+  * <a href="#hp">HP Indicator</a>
 * <a href="#faq">FAQ/Troubleshooting</a>
 
 <br/>
@@ -20,6 +21,9 @@ A Browser Extension to temporarily add functionality to Mythic Table while it's 
 * Copy Character
   * Allows you to Copy Characters or Tokens for use in other Campaigns
   * Can also be used to save a modified Token as a new Character
+* HP Indicator
+  * This feature sets the color of the Token's Border Color to a gradient between <span style="color:green;">Green</span> (full health) and <span style="color:red;">Red</span> (0 HP)
+  *  When the Token is reduced to 0 HP, the "*Death Skull*" icon will be set on the Token. The skull is automatically removed when the Token's HP raises above 0.
 
 <br/>
 <h1 id="installation">Installation</h1>
@@ -45,10 +49,23 @@ A Browser Extension to temporarily add functionality to Mythic Table while it's 
 </ol>
 
 <h1 id="usage">Usage</h1>
-To activate Mythic Table, you'll need to click the Page Action (Icon) in your Browser's Toolbar. This will do three things:
-    * Create the GM Token (be sure to see below)
-    * Add the Initiative Tracker to the sidebar
-    * And populate Initiatve Tracker with any appropriately tagged Tokens
+To activate Mythic Table, you'll need to click the Page Action (Icon) in your Browser's Toolbar. This will do a number of things:
+
+* Create the GM Token (be sure to see below)
+* Add the Initiative Tracker to the sidebar
+* Populate the Initiatve Tracker with any appropriately tagged Tokens
+* Set the Border and Icons for any Tokens with HP Indicator tags
+
+**A Note about Tags**- Unless otherwise specified, each individual tag should be on a separate line in the character/token's description, e.g.:
+```
+// Correct Format
+@currentcombat
+@initiative: 14
+
+// Incorrect Format
+@currentcombat @initiative: 14
+```
+
 
 <br/>
 <h2 id="initiative">Using the Initiative Tracker</h2>
@@ -62,7 +79,7 @@ To activate Mythic Table, you'll need to click the Page Action (Icon) in your Br
   * `@initiative bonus: {+- Bonus}`- Used as a tiebreaker when two characters have the same initiative
 * Save the token: it will automatically be added and the Initiative List will be resorted
 
-<img class="small" src="readmeimages/initiativetracker2.png"/>
+<img class="small" src="readmeimages/initiativetracker2.png"  onclick="window.open(this.src)"/>
 
 **Finding Tokens on the List**
 * You can click on any token on the Initiative List and it will be automatically selected on the Map
@@ -83,6 +100,28 @@ To activate Mythic Table, you'll need to click the Page Action (Icon) in your Br
 * By clicking the Paste Button, the Character will be added to the current Campaign
 
 <br/>
+<h2 id="hp">Using the HP Indicator</h2>
+<img src="readmeimages/hpindicator.png"/>
+
+**Important Note-** To enable this feature the GM must be running this extension: this requirement is in place to prevent duplicate updates to tokens.
+
+<img class="small" src="readmeimages/hpindicator2.png" onclick="window.open(this.src)" />
+
+**Setting HP on individual Tokens**
+* Anyone can setup the HP Indicator for tokens they have access to by setting two tags: `@maxHP` and `@currentHP`
+  * `@maxHP: {number}` sets the token's Maximum HP
+  * `@currentHP: {number}` sets the token's Current HP
+  * Both tags are required
+
+<img class="small" src="readmeimages/hpindicator3.png" onclick="window.open(this.src)" />
+
+**Setting HP on the GMCHARACTER**
+* As the GM, you can use the HP Indicator without your Players being able to see the tokens' HP values by setting the `@hptracker` tag on the *GMCHARACTER*.
+* `@hptracker{}` is a special tag: the curly brackets in this case are required as the tag is a list
+  * Inside of the curly brackets you can define token HP using the format: `{token name}: {currentHP}/{maxHP}`
+  * Each token declaration must be separated by a new line
+
+<br/>
 <h1 id="faq">FAQ/Troubleshooting</h1>
 
 **My Extension Manager won't let me enable the Extension because it's from an unknown source!**
@@ -93,7 +132,19 @@ This normally occurs because you are using the crx file: in this case you have t
 
 **The Arrows on the Initiative Tracker and the Token Images are Ginormous!**
 <div class="indented">
-Refreshing your webpage normally fixes this. While this is inconvenient, it generally only happens once. The CSS (styling) for those objects i added to the page by your Browser at the behest of the MTE: if your Browser fails to load that stylesheet we won't really know on the Backend/Extension side. If this becomes a more prevelant problem we may simply hard-code the styling into the elements, but as it rarely happens we've decided to live with it for the time being.
+Refreshing your webpage normally fixes this. While this is inconvenient, it generally only happens once. The CSS (styling) for those objects are added to the page by your Browser at the behest of the MTE: if your Browser fails to load that stylesheet we won't really know within the Extension. If this becomes a more prevelant problem we may simply hard-code the styling into the elements, but as it rarely happens we've decided to live with it for the time being.
+</div>
+<br/>
+
+**My Border type keeps changing from Circle/Square to Coin!**
+<div class="indented">
+Assumeably this is because you are using the HP Indicator. The Circle and Square Border types do not display Border Color, which would prevent the HP Indicator from working as intended: it therefore automatically changes the Border type to Coin so that it can display the correct Border Color.
+
+<br/>
+
+If you want a square Border, set it to Tile and the HP Indicator will not change it.
+
+If you don't want the HP Indicator to change the Border type, remove the `@maxHP` and/or `@currentHP` tags from the token and/or remove the token from the `@hptracker` list on the *GMCHARACTER*.
 </div>
 
 <style type="text/css">

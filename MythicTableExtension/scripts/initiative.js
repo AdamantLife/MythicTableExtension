@@ -1,3 +1,12 @@
+/**
+ * MythicTableExtension/scripts/initiative.js
+ * 
+ * Creates a new sidebar item which shows the current initiative order and can be used to select tokens on the map.
+ * Tokens are added to the initiative by adding the "@currentcombat" tag to the token description.
+ * Initiative values are set via "@initiative: {value}" and a tiebreaker value can be stored using
+ * "@initiative bonus: {+-value}"
+ */
+
 class InitiativeTracker{
     static CURRENTRE = /@currentcombat\s*$/im
     static INITRE = /@initiative:\s*(?<initiative>\d+)\s*$/im;

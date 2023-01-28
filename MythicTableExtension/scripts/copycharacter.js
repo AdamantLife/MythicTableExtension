@@ -1,3 +1,13 @@
+/**
+ * MythicTableExtension/scripts/copycharacter.js
+ * 
+ * Allows for the copying of characters between Campaigns
+ * 
+ * Places a copy button in the Edit Character/Token Modal(popup) window which stores the Character information to the session's storage.
+ * Once a character is stored, the "Paste Character" button is enabled in the Page Action (Extension Popup) Window which can be used to
+ * create a Character in any campaign that is a copy of that character.
+ */
+
 class CopyCharacter{
     constructor(){
 
