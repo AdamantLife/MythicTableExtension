@@ -147,7 +147,7 @@ If you want a square Border, set it to Tile and the HP Indicator will not change
 If you don't want the HP Indicator to change the Border type, remove the `@maxHP` and/or `@currentHP` tags from the token and/or remove the token from the `@hptracker` list on the *GMCHARACTER*.
 </div>
 
-<style type="text/css">
+<!--<style type="text/css">
     ol ol{
         list-style-type: lower-alpha;
     }
@@ -162,3 +162,4 @@ If you don't want the HP Indicator to change the Border type, remove the `@maxHP
         text-indent: -2em;
     }
 </style>
+-->
