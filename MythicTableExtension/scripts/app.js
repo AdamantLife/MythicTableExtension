@@ -1,7 +1,9 @@
 /**
  *  MythicTableExtension/scripts/app.js
  * 
- * Core Extnension functionality
+ * Core Extnension functionality.
+ * Provides access to a variety of storage areas and shortcut functions for event listeners
+ * for Mythic Table.
  */
 
 let GMCHARACTER = {
@@ -183,6 +185,84 @@ class MythicTableExtension{
     }
 
     /**
+     * Additional Subscription Filtering for collections/patch
+     * @param {Function} callback - The callback to use if the mutation/action passes the additional filtering
+     * @param {Object} options - An object defining various additional filtering options
+     * @param {String|String[]|Function} [options.collection] - The collection type to filter for (i.e.- characters, tokens).
+     *      Can be an array of collection type filters or a Function which returns an array of collection type filters.
+     * @param {String| String[]|Function} [options.id] - The id of the object being patched. Can be an array of object ids
+     *      or a Function which returns an array of object ids.
+     * @param {String|String[]|Function} [options.path] - Checks all patch objects for a matching path (i.e.- "/description")
+     *      Can be an array of collection type filters or a Function which returns an array of path filters.
+     *
+     * @returns {Function} - The intermediary callback to provide to MTE.subscribe/subscribeAction
+     */
+    collectionPatchFilterCallback(callback, options={}){
+        let ops = {collection : null, path : null, id : null};
+        let value;
+        // Gather/Coerce options
+        for(let op of Object.keys(ops)){
+            value = options[op];
+            // Option not provided
+            if(!value || typeof value == "undefined") continue;
+            // Coerce value into array
+            if(typeof value == "string") value = [value];
+            // Store value
+            ops[op] = value;
+        }
+
+        function filterCallback(actionmutation, state){
+            if(ops.collection){
+                let passing = false;
+                let filters = ops.collection;
+                // Check if collections is a function and resolve it if it is
+                if(typeof filters == "function") filters = filters();
+                // Check if the action/mutation's collection type matches
+                // one of our filtered values
+                for(let value of filters){
+                    if(actionmutation.payload.collection == value) passing = true;
+                }
+                // Did not successfully filter collection type, so do nothing
+                if(!passing) return;
+            }
+            if(ops.id){
+                let passing = false;
+                let filters = ops.id;
+                // Check if id is a function and resolve it if it is
+                if(typeof filters == "function") filters = filters();
+                // Check if the action/mutation's object id matches
+                // one of our filtered values
+                for(let value of filters){
+                    if(actionmutation.payload.id == value) passing = true;
+                }
+                // Did not successfully filter collection type, so do nothing
+                if(!passing) return;
+            }
+            if(ops.path){
+                let passing = false;
+                let filters = ops.path;
+                // Check if path is a function and resolve it if it is
+                if(typeof filters == "function") filters = filters();
+
+                // Filter against each update in patch
+                for(let patch of actionmutation.payload.patch){
+                    // Check if that patch's path matches one of our
+                    // filtered values
+                    for(let value of filters){
+                        if(patch.path == value) passing = true;
+                    }
+                }
+                // No update patch matched against any of our filter values
+                if(!passing) return;
+            }
+
+            // We have successfully matched all of the provided options
+            return callback(actionmutation, state);
+        }
+        return filterCallback;
+    }
+
+    /**
      * Unsubscribes from the store
      * @param {String} name - The name that was used with MTE.subscribe
      */
@@ -231,6 +311,13 @@ class MythicTableExtension{
      */
     getToken(tokenid){
         return this.cache['tokens/'].getToken(tokenid);
+    }
+
+    getTokenByName(tokenName){
+        for(let token of this.getTokens()){
+            if(token.name == tokenName) return token;
+        }
+        return false;
     }
 
     getSelectedToken(){
