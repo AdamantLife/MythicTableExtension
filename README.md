@@ -79,7 +79,7 @@ To activate Mythic Table, you'll need to click the Page Action (Icon) in your Br
   * `@initiative bonus: {+- Bonus}`- Used as a tiebreaker when two characters have the same initiative
 * Save the token: it will automatically be added and the Initiative List will be resorted
 
-<img class="small" src="readmeimages/initiativetracker2.png"  onclick="window.open(this.src)"/>
+<img class="small" src="readmeimages/initiativetracker2.png"/>
 
 **Finding Tokens on the List**
 * You can click on any token on the Initiative List and it will be automatically selected on the Map
@@ -105,7 +105,7 @@ To activate Mythic Table, you'll need to click the Page Action (Icon) in your Br
 
 **Important Note-** To enable this feature the GM must be running this extension: this requirement is in place to prevent duplicate updates to tokens.
 
-<img class="small" src="readmeimages/hpindicator2.png" onclick="window.open(this.src)" />
+<img class="small" src="readmeimages/hpindicator2.png"/>
 
 **Setting HP on individual Tokens**
 * Anyone can setup the HP Indicator for tokens they have access to by setting two tags: `@maxHP` and `@currentHP`
@@ -113,7 +113,7 @@ To activate Mythic Table, you'll need to click the Page Action (Icon) in your Br
   * `@currentHP: {number}` sets the token's Current HP
   * Both tags are required
 
-<img class="small" src="readmeimages/hpindicator3.png" onclick="window.open(this.src)" />
+<img class="small" src="readmeimages/hpindicator3.png"/>
 
 **Setting HP on the GMCHARACTER**
 * As the GM, you can use the HP Indicator without your Players being able to see the tokens' HP values by setting the `@hptracker` tag on the *GMCHARACTER*.
@@ -155,7 +155,7 @@ If you don't want the HP Indicator to change the Border type, remove the `@maxHP
         max-height:20em;
     }
     img.small{
-        max-height:10em;
+        max-height:10em !important;
     }
     div.indented{
         margin-left:4em;
