@@ -40,6 +40,22 @@ class HPIndicator{
         });
         MTE.subscribe("gmhp", gmFilter, ["collections/patch"]);
 
+        let nameChangeFilter = MTE.collectionPatchFilterCallback( this.nameChangeCallback.bind(this),
+        {
+            collection: "tokens",
+            path: "/name"
+        }
+        );
+
+        MTE.subscribe("namehp", nameChangeFilter, ["collections/patch"]);
+
+        let tokenAddFilter = MTE.collectionPatchFilterCallback(this.tokenAddCallback.bind(this),
+        {
+            collection: "tokens"
+        })
+
+        MTE.subscribe("tokenaddhp", tokenAddFilter, ["collections/add"]);
+
         // Make sure token ring colors are up-to-date
         for(let token of MTE.getTokens()){
             let result = this.parseToken(token);
@@ -88,8 +104,12 @@ class HPIndicator{
         let result;
         // Gather all matches from the HP list (hp values inside of curly braces after the @hptracker tag)
         while((result = HPIndicator.GMHPRE.exec(hpList)) !== null){
+            // A specific token (i.e.- NPC) may be present on multiple maps, so update all
+            let tokens = MTE.getTokensByName(result.groups.name);
+            if(!tokens) continue;
+            for(let token of tokens)
             // Getting full token object here so it doesn't have to be done later
-            results.push({token: MTE.getTokenByName(result.groups.name), maxHP: parseInt(result.groups.maxHP), currentHP: parseInt(result.groups.currentHP)});
+            results.push({token , maxHP: parseInt(result.groups.maxHP), currentHP: parseInt(result.groups.currentHP)});
         }
         return results;
     }
@@ -125,6 +145,58 @@ class HPIndicator{
         }
     }
 
+    nameChangeCallback(mutation, state){
+        console.log('here2')
+        // Get the full token
+        let token = MTE.getToken(mutation.payload.id);
+        // We don't need to parse token because it would have been parsed before
+        // instead we'll check to see if the new name is in the GM's hptracker
+        let gmparse = this.parseGM(MTE.GMCharacter);
+        let result;
+        for(let gmresult of gmparse){
+            // GM has a matching name
+            if(gmresult.token.name == token.name)
+            {
+                result = gmresult;
+                // Exit the loop
+                // DEVNOTE: In theory we shouldn't have multiple matches, but we may
+                //      need to consider how to handle it if we do in the future
+                break;
+            }
+        }
+        // New name did not match anything on the GM
+        if(!result) return;
+
+        this.setRingColor(token, result);
+    }
+
+    tokenAddCallback(mutation, state){
+        console.log("here");
+        // Get Token from payload and parse it
+        let token = mutation.payload.item;
+        let result = this.parseToken(token);
+        // If it doesn't have HP info recorded on it, check to see if it's recorded on the Gm
+        if(!result){
+            let gmparse = this.parseGM(MTE.GMCharacter)
+            // Note that gmparse is an array regardless of whether anything was parsed or not
+            for(let gmresult of gmparse){
+                // GM has a matching name
+                if(gmresult.token.name == token.name)
+                {
+                    result = gmresult;
+                    // Exit the loop
+                    // DEVNOTE: In theory we shouldn't have multiple matches, but we may
+                    //      need to consider how to handle it if we do in the future
+                    break;
+                }
+            }
+        }
+        // We still don't have a result (after parsing gm)
+        if(!result) return;
+
+        this.setRingColor(token, result);
+    }
+
     /**
      * 
      * @param {Object} token - The token to update
@@ -154,6 +226,9 @@ class HPIndicator{
         let color = {r: Math.floor(255*(1-percentage)), g: Math.floor(255*percentage),b: 0};
         // convert to hex
         color = createHexString(color);
+
+        // Don't bother updating if the color already matches
+        if(token.borderColor == color) return;
 
         // Update token
         // Set Color

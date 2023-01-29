@@ -313,10 +313,12 @@ class MythicTableExtension{
         return this.cache['tokens/'].getToken(tokenid);
     }
 
-    getTokenByName(tokenName){
+    getTokensByName(tokenName){
+        let out = []
         for(let token of this.getTokens()){
-            if(token.name == tokenName) return token;
+            if(token.name == tokenName) out.push(token);
         }
+        if(out.length) return out;
         return false;
     }
 
