@@ -19,25 +19,26 @@ const PLUGINS = {
     "app": {
         file: "scripts/app.js",
         classname: "MythicTableExtension",
-        instancevariable: "MTE"
+        instancevariable: "MTE",
+        setup:[]
     },
     "initiative":{
         file: "scripts/initiative.js",
         classname: "InitiativeTracker",
         instancevariable: "MTEINIT",
-        popupbuttons: []
+        setup:["setupInitiative"]
     },
     "copycharacter":{
         file:"scripts/copycharacter.js",
         classname: "CopyCharacter",
         instancevariable: "MTECOPY",
-        popupbuttons: ["pasteCharacter"]
+        setup:["setupCopyCharacter"]
     },
     "hpindicator":{
         file:"scripts/hpindicator.js",
         classname: "HPIndicator",
         instancevariable: "MTEHP",
-        popupbuttons:[]
+        setup:[]
     }
 };
 
@@ -123,15 +124,37 @@ function getSubscriptions(){
 }
 
 /**
- * Updates the Popup UI based on the current state of the Extension App (MTE)
+ * Updates the Popup UI for the Initiative Plugin
  */
-function updateUI(){
+function setupInitiative(){
+    document.body.insertAdjacentHTML('beforeend',
+`<fieldset id="initiativePlugin">
+    <legend title="Initiative">Initiative</legend>
+    <button id="clearInitiative">Clear Current Combat</button>
+</fieldset>`);
+    document.getElementById("clearInitiative").onclick = clearCurrentCombat;
+}
+
+/**
+ * Updates the Popup UI for the Copy Character Plugin
+ */
+function setupCopyCharacter(){
+    document.body.insertAdjacentHTML('beforeend',
+`<fieldset id="copyCharacterPlugin">
+    <legend title="Copy Character">Copy Character</legend>
+    <div style="font-weight: bold;white-space: nowrap;">Copied Character:</div>
+    <div id="copyCharacter" style="margin-left:1em;">None</div>
+    <button id="pasteCharacter">Paste Character</button>
+</fieldset>`);
     // CopyCharacter Setup
     chrome.storage.session.get(["copyCharacter"])
         .then(result=>result.copyCharacter)
         .then(copyCharacter=>{
                 if(!copyCharacter || typeof copyCharacter == "undefined") document.getElementById("pasteCharacter").disabled = true;
-                else document.getElementById("copyCharacter").innerText = copyCharacter.name;
+                else{
+                    document.getElementById("copyCharacter").innerText = copyCharacter.name;
+                    document.getElementById("pasteCharacter").onclick = pasteCharacter;
+                }
             }
         );
 }
@@ -145,11 +168,16 @@ function updateExtensionID(){
 
 /** CALLBACKS */
 
+/** Removes the "@currentcombat" tag from all tokens */
+function clearCurrentCombat(){
+    // Signal for the on-page plugin to handle this
+    executeScript(()=>{MTEINIT.clearCurrentCombat()});
+}
+
 /**
  * Pulls previously stored Character information from session storage and passes it to the MTE's CopyCharacter object
  */
 function pasteCharacter(){
-    let result;
     chrome.storage.session.get(["copyCharacter"])
         .then(storage=>{
             executeScript((character)=>MTECOPY.pasteCharacter(character), [storage.copyCharacter]);
@@ -157,11 +185,11 @@ function pasteCharacter(){
 }
 
 /** INITIAL SETUP */
-// Hookup Buttons
-for(let plugin of Object.values(PLUGINS)){
-    if(plugin.popupbuttons && typeof plugin.popupbuttons !== "undefined"){
-        for(let button of plugin.popupbuttons){
-            document.getElementById(button).onclick = this[button];
+async function setupPlugins(){
+    for(let plugin of Object.values(PLUGINS)){
+        await checkAndEstablishPlugin(plugin);
+        for(let setupFunction of plugin.setup){
+            this[setupFunction]();
         }
     }
 }
@@ -182,13 +210,6 @@ chrome.tabs.query({active: true, currentWindow:true})
     // Save TABID for future use
     TABID = tabs[0].id;
 })
-/** DEVNOTE- Currently loading plugins individually because we originally
- *      were going to load them on-request by the user- however we have
- *      since shifted from that, so we may want to reorganize this
- */
-.then(()=>checkAndEstablishPlugin(PLUGINS.app))
-.then(()=>checkAndEstablishPlugin(PLUGINS.initiative))
-.then(()=>checkAndEstablishPlugin(PLUGINS.copycharacter))
-.then(()=>checkAndEstablishPlugin(PLUGINS.hpindicator))
-.then(()=>updateUI())
+.then(()=>setupPlugins())
+/** DEVNOTE- updateExtensionID uses the MTE object. This may need to change if we need it before MTE is setup */
 .then(()=>updateExtensionID());

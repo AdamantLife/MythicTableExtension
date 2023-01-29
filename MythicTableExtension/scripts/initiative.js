@@ -412,6 +412,21 @@ class InitiativeTracker{
         */
         
     }
+
+    /**
+     * Removes the "@currentcombat" tag from all Tokens
+     */
+    clearCurrentCombat(){
+        for(let token of MTE.getTokens()){
+            // For each token, check if it is in current combat
+            let[current, ...etc] = this.parseDescription(token);
+            // If it isn't don't do anything
+            if(!current) continue;
+            // Otherwise, remove @currentcombat from the description and update it
+            token.description = token.description.replace(InitiativeTracker.CURRENTRE, "");
+            MTE.store._actions['tokens/update'][0](token);
+        }
+    }
 }
 
 // DEVNOTE- !important Plugins must register their constructor on window in order for them to be checked for later
