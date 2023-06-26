@@ -1,46 +1,7 @@
 /** UTILITIES */
 
-/**
- * @typedef PluginDef<Object>
- * @property {String} file - The file name
- * @property {String} classname - The Plugin's associtated class's constructor name
- * @property {String} instancevariable - The expected variable name on the DOM for the initialized class
- * @property {String[]} [popupbuttons] - An array of ids of the plugin's asociated buttons in the popup ui (if it has any)
- */
-
+/** Used to check if a Campaign has been loaded */
 var URLMATCH = /.*?mythictable.com\/play\/.*?\/debug/;
-
-// DEVNOTE- !important Plugins must register their constructor on window in order for them to be checked for later
-
-// Tab id of the current (active) tab
-var TABID;
-
-const PLUGINS = {
-    "app": {
-        file: "scripts/app.js",
-        classname: "MythicTableExtension",
-        instancevariable: "MTE",
-        setup:[]
-    },
-    "initiative":{
-        file: "scripts/initiative.js",
-        classname: "InitiativeTracker",
-        instancevariable: "MTEINIT",
-        setup:["setupInitiative"]
-    },
-    "copycharacter":{
-        file:"scripts/copycharacter.js",
-        classname: "CopyCharacter",
-        instancevariable: "MTECOPY",
-        setup:["setupCopyCharacter"]
-    },
-    "hpindicator":{
-        file:"scripts/hpindicator.js",
-        classname: "HPIndicator",
-        instancevariable: "MTEHP",
-        setup:[]
-    }
-};
 
 /**
  * A convenience function to simplify returning values from current tab
@@ -53,66 +14,6 @@ function executeScript(func, args){
         args,
         world: "MAIN"
     }).then(([main, ...etc])=> main.result)
-}
-
-/**
- * Checks if a plugin has already been injected into the dom and checks if the expected
- * instance of that plugin has been initialized with the given variable name
- * @param {PluginDef} plugin - The Plugin Definition
- * @returns {Promise} - The executeScript Promise
- */
-function checkClassandInstance(plugin){
-    /**
-     * The Dom check
-     */
-    function check(plugin){
-        return [
-            window[plugin.classname] && typeof window[plugin.classname] !== "undefined",
-            window[plugin.instancevariable] && typeof window[plugin.instancevariable] !== "undefined"
-        ]
-    }
-    return executeScript(check, [plugin]);
-}
-
-/**
- * 
- * @param {PluginDef} plugin - The PluginDefinition
- * @param {Boolean} isInjected - Whether or not the Plugin's script file needs to be injected
- * @param {Boolean} isInitialized - Whether or not the Plugin's class needs to be initialized
- * @returns {Promise} - A promise for the resolution of establishing the Plugin
- */
-function establishPlugin(plugin, isInjected, isInitialized){
-    return new Promise((resolve, reject)=>{
-        // Plugin is good to go
-        if(isInjected && isInitialized) return resolve(null);
-        // Plugin has not been initialized
-
-        if(isInjected){
-            return resolve(
-                executeScript(
-                    (plugin)=>{window[plugin.instancevariable] = new window[plugin.classname]();},
-                    [plugin])
-                );
-        }
-
-        // Plugin needs to be injected
-        return resolve(chrome.scripting.executeScript({
-            target: { tabId: TABID},
-            files: [plugin.file],
-            world: "MAIN"
-        }))
-
-    });
-}
-
-/**
- * Calls checkClassandInstance and then passes the result to establish Plugin
- * @param {PluginDef} plugin - The plugin to check and Establish
- * @returns {Promise} - The promise chain from check to establish
- */
-function checkAndEstablishPlugin(plugin){
-    return checkClassandInstance(plugin)
-        .then(([isInjected, isInitialized])=>establishPlugin(plugin, isInjected, isInitialized));
 }
 
 /**
@@ -131,8 +32,10 @@ function setupInitiative(){
 `<fieldset id="initiativePlugin">
     <legend title="Initiative">Initiative</legend>
     <button id="clearInitiative">Clear Current Combat</button>
+    <button id="addAllInitiative">Add All Tokens to Initiative</button
 </fieldset>`);
     document.getElementById("clearInitiative").onclick = clearCurrentCombat;
+    document.getElementById("addAllInitiative").onclick = addAllCombat;
 }
 
 /**
@@ -159,6 +62,16 @@ function setupCopyCharacter(){
         );
 }
 
+function setupHPTracker(){
+    document.body.insertAdjacentHTML('beforeend',`
+<fieldset id="hpPlugin">
+    <legend title="HP Tracker">HP Tracker</legend>
+    <button id="addHP">Add HP for All Tokens</button>
+</fieldset>
+    `);
+    document.getElementById("addHP").onclick = addAllHP;
+}
+
 /**
  * In order to save to the extension's storage, the injected app needs to know the extension id
  */
@@ -175,6 +88,14 @@ function clearCurrentCombat(){
 }
 
 /**
+ * Adds the "@"-initiative tag to all tokens on the current map
+ */
+function addAllCombat(){
+    // Signal for the on-page plugin to handle this
+    executeScript(()=>{MTEINIT.updateAllTokens()});
+}
+
+/**
  * Pulls previously stored Character information from session storage and passes it to the MTE's CopyCharacter object
  */
 function pasteCharacter(){
@@ -184,14 +105,12 @@ function pasteCharacter(){
         });
 }
 
-/** INITIAL SETUP */
-async function setupPlugins(){
-    for(let plugin of Object.values(PLUGINS)){
-        await checkAndEstablishPlugin(plugin);
-        for(let setupFunction of plugin.setup){
-            this[setupFunction]();
-        }
-    }
+/**
+ * Adds the "@"-HP tag to all tokens on the current map
+ */
+function addAllHP(){
+    // Signal for the on-page plugin to handle this
+    executeScript(()=>{MTEHP.updateAllTokens()});
 }
 
 // This object allows us to interrupt an .then() chain
@@ -207,9 +126,13 @@ chrome.tabs.query({active: true, currentWindow:true})
         document.body.insertAdjacentHTML("beforeend", `<h3 style="text-align:center;">Navigate to a Campaign</h3>`);
         return breakpoint;
     }
+    else{
+        setupInitiative();
+        setupCopyCharacter();
+        setupHPTracker();
+    }
     // Save TABID for future use
     TABID = tabs[0].id;
 })
-.then(()=>setupPlugins())
 /** DEVNOTE- updateExtensionID uses the MTE object. This may need to change if we need it before MTE is setup */
 .then(()=>updateExtensionID());

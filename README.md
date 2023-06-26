@@ -49,7 +49,7 @@ A Browser Extension to temporarily add functionality to Mythic Table while it's 
 </ol>
 
 <h1 id="usage">Usage</h1>
-To activate Mythic Table, you'll need to click the Page Action (Icon) in your Browser's Toolbar. This will do a number of things:
+As of Release Version 1.02 the following will following will automatically be added to the Mythic Table UI (previously these needed to be manually actiated):
 
 * Create the GM Token (be sure to see below)
 * Add the Initiative Tracker to the sidebar
@@ -71,7 +71,14 @@ To activate Mythic Table, you'll need to click the Page Action (Icon) in your Br
 <h2 id="initiative">Using the Initiative Tracker</h2>
 <img src="readmeimages/initiativetracker.png"/>
 
-**To add tokens to the Initiative Tracker**
+**Adding Tokens to the Initiatve Tracker Automatically**
+* Click on the Page Action (Toolbar Icon)
+* Click the "Add All Tokens to Initiative" button
+  * This will add `@currentcombat`, `@initiative: 0`, and `@initiative bonus: +0` to all tokens on the current Map owned by the Player
+    * If the Player is the GM, all tokens will be updated regardless of owner
+  * Update each token's description to the appropriate initiatve and initiative bonus values
+
+**To add tokens to the Initiative Tracker Manually**
 * Open the Token Editor for the token you want to add to the list
 * Add the following tags (each tag should be on its own line):
   * `@currentcombat` - This adds the Token to the Initiative Tracker
@@ -107,7 +114,15 @@ To activate Mythic Table, you'll need to click the Page Action (Icon) in your Br
 
 <img class="small" src="readmeimages/hpindicator2.png"/>
 
-**Setting HP on individual Tokens**
+**Setting HP on all Tokens Automatically**
+* Click on the Page Action (Toolbar Icon)
+* Click the "Add HP for All Tokens" button
+  * This will add `@maxHP: 0` and `@currentHP: 0` to all tokens owned by the Player on the current Map
+  * Each Hidden Token owned by the Player (the GM) will be added to the *GMCHARACTER*
+  * Update each token's description to the appropriate hp values
+  * Update the HP values on the GMCHARACTER to the appropriate values
+
+**Setting HP on individual Tokens Manually**
 * Anyone can setup the HP Indicator for tokens they have access to by setting two tags: `@maxHP` and `@currentHP`
   * `@maxHP: {number}` sets the token's Maximum HP
   * `@currentHP: {number}` sets the token's Current HP
@@ -115,7 +130,7 @@ To activate Mythic Table, you'll need to click the Page Action (Icon) in your Br
 
 <img class="small" src="readmeimages/hpindicator3.png"/>
 
-**Setting HP on the GMCHARACTER**
+**Setting HP on the GMCHARACTER Manually**
 * As the GM, you can use the HP Indicator without your Players being able to see the tokens' HP values by setting the `@hptracker` tag on the *GMCHARACTER*.
 * `@hptracker{}` is a special tag: the curly brackets in this case are required as the tag is a list
   * Inside of the curly brackets you can define token HP using the format: `{token name}: {currentHP}/{maxHP}`
@@ -146,20 +161,3 @@ If you want a square Border, set it to Tile and the HP Indicator will not change
 
 If you don't want the HP Indicator to change the Border type, remove the `@maxHP` and/or `@currentHP` tags from the token and/or remove the token from the `@hptracker` list on the *GMCHARACTER*.
 </div>
-
-<!--<style type="text/css">
-    ol ol{
-        list-style-type: lower-alpha;
-    }
-    img{
-        max-height:20em;
-    }
-    img.small{
-        max-height:10em !important;
-    }
-    div.indented{
-        margin-left:4em;
-        text-indent: -2em;
-    }
-</style>
--->

@@ -56,7 +56,4 @@ class CopyCharacter{
     }
 }
 
-// DEVNOTE- !important Plugins must register their constructor on window in order for them to be checked for later
-window.CopyCharacter = CopyCharacter;
-
 if(!window.MTECOPY || typeof window.MTECOPY == "undefined") window.MTECOPY = new CopyCharacter();

@@ -299,7 +299,6 @@ class InitiativeTracker{
         // Spoofing an event for simplicity's sake
         this.selectToken({target: newcurrent})
     }
-
     /**
      * Resorts the Initiative Tracker in descending order
      */
@@ -427,9 +426,29 @@ class InitiativeTracker{
             MTE.store._actions['tokens/update'][0](token);
         }
     }
+
+    /**
+     * Gets all current PlayTokens and Makes sure each one has
+     * all initiative tags
+     */
+    updateAllTokens(){
+        let userid = MTE.myProfile.id;
+        let isGM = MTE.isGM;
+        for(let token of MTE.playTokens){
+            let basetoken = token.entity;
+            // Only update token if the Player owns it, or if the Player is
+            // the GM
+            if(!isGM && basetoken._userid != userid) continue;
+            
+            let [current, initiative, bonus] = this.parseDescription(basetoken)
+            if(!current) basetoken.description+=`\n@currentcombat`;
+            if(!initiative) basetoken.description += `\n@initiative: 0`;
+            if(!bonus) basetoken.description += `\n@initiative bonus: +0`;
+            // Updates were made
+            if(!current || !initiative || !bonus) MTE.store._actions['tokens/update'][0](basetoken);
+        }
+    }
 }
 
-// DEVNOTE- !important Plugins must register their constructor on window in order for them to be checked for later
-window.InitiativeTracker = InitiativeTracker;
 
 if(!window.MTEINIT || typeof window.MTEINIT == "undefined") window.MTEINIT = new InitiativeTracker();

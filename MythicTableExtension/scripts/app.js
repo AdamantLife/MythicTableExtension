@@ -397,7 +397,4 @@ function recurseFind(target, start = window){
     return path;
 }
 
-// DEVNOTE- !important Plugins must register their constructor on window in order for them to be checked for later
-window.MythicTableExtension = MythicTableExtension;
-
 if(!window.MTE || typeof window.MTE == "undefined") window.MTE = new MythicTableExtension();
