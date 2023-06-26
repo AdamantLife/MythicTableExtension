@@ -15,7 +15,7 @@
 class HPIndicator{
     static TOKENHPRE = /^@maxhp\s*:\s*(?<maxHP>\d+)\s*$/im;
     static TOKENCURRENTRE = /^@currenthp\s*:\s*(?<currentHP>-?\d+)\s*$/im;
-    static GMRE = /^@hptracker\s*\{(?<hpList>.+?)\}/ims;
+    static GMRE = /^(?<tracker>@hptracker\s*\{(?<hpList>.+?)\})/ims;
     static GMHPRE = /^\s*(?<name>.+?)\s*:\s*(?<currentHP>-?\d+)\s*\/\s*(?<maxHP>\d+)\s*$/gim;
     static DEATHICON = "\ue98c";
     constructor(){
@@ -243,6 +243,78 @@ class HPIndicator{
         // Push to Mythic Table
         MTE.store._actions['tokens/update'][0](token);
     }
+
+    updateAllTokens(){
+        let gmchange = false;
+        let gmcharacter;
+        let gmtokens;
+        if(MTE.isGM){
+            gmcharacter = MTE.GMCharacter;
+            gmtokens = this.parseGM(gmcharacter);
+        }
+
+        let playerid = MTE.myProfile.id;
+        let isGM = MTE.isGM;
+
+        for(let token of MTE.playTokens){
+            let basetoken = token.entity;
+            // Only touch your own tokens
+            if(basetoken._userid != playerid) continue;
+            // Visible Character/Token, so add HP to its token directly
+            if(!basetoken.private){
+                console.log("Visible token", basetoken.name)
+
+                let {maxHP, currentHP} = this.parseToken(basetoken);
+
+                // Update as necessary
+                if(!maxHP) basetoken.description += `\n@maxHP: 0`;
+                if(!currentHP) basetoken.description += `\n@currentHP: 0`;
+
+                // If we made changes, push to Mythic Table
+                if(!maxHP || !currentHP) MTE.store._actions['tokens/update'][0](token);
+
+            // DEVNOTE- Non-GM's shouldn't be able to make hidden tokens, so this line
+            //          should be extraneous, but included just in case
+            }else if(isGM){
+                console.log("Hidden token", basetoken.name)
+                // Hidden Token belonging to GM are registered on the GMCHARACTER
+                let found = false;
+                // Check if token in gmtokens
+                for(let {token: t} of gmtokens){
+                    if(t == basetoken){
+                        found = true;
+                        break;
+                    }
+                }
+
+                // Already on GM Token
+                if(found) continue;
+
+                // Otherwise, add it
+                gmtokens.push({token: basetoken, maxHP: 0, currentHP: 0});
+                // Flag for gmchange
+                gmchange = true;
+            }
+        }
+
+        // If gmtokens has changed update the GMCharacter
+        if(gmchange){
+            console.log("Updating GM")
+            // Don't duplicate tokennames
+            let tokennames = [];
+            // Output string
+            let output = ""
+            for(let {token, maxHP, currentHP} of gmtokens){
+                if(tokennames.indexOf(token.name) >= 0) continue;
+                tokennames.push(token.name);
+                output+= `\n    ${token.name}: ${currentHP}/${maxHP}`;
+            }
+
+            gmcharacter.description = gmcharacter.description.replace(HPIndicator.GMRE, `@hptracker{${output}
+}`);
+            MTE.store._actions['characters/update'][0](gmcharacter);
+        }
+    }
 }
 
 /**
@@ -259,8 +331,5 @@ function createHexString(color){
     }
     return "#"+padConvert(color.r)+padConvert(color.g)+padConvert(color.b);
 }
-
-// DEVNOTE- !important Plugins must register their constructor on window in order for them to be checked for later
-window.HPIndicator = HPIndicator;
 
 if(!window.MTEHP || typeof window.MTEHP == "undefined") window.MTEHP = new HPIndicator();

@@ -16,7 +16,14 @@
   "content_scripts":[
     {
       "matches":["*://fp.mythictable.com/play/*/debug"],
-      "css":["css/initiative.css"]
+      "js": [
+          "scripts/app.js",
+          "scripts/copycharacter.js",
+          "scripts/hpindicator.js",
+          "scripts/initiative.js"
+        ],
+      "css":["css/initiative.css"],
+      "world": "MAIN"
     }
   ],
   "externally_connectable": {
