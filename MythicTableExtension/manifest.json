@@ -13,6 +13,12 @@
     "default_title":"Mythic Table Extension",
     "default_popup": "popup.html"
   },
+  "icons":{
+    "16":"icons/16x16.png",
+    "32":"icons/32x32.png",
+    "48":"icons/48x48.png",
+    "128":"icons/128x128.png"
+  },
   "content_scripts":[
     {
       "matches":["*://fp.mythictable.com/play/*/debug"],
@@ -22,12 +28,15 @@
           "scripts/hpindicator.js",
           "scripts/initiative.js"
         ],
-      "css":["css/initiative.css"],
+      "css":["css/icons.css", "css/app.css","css/initiative.css"],
       "world": "MAIN"
     }
   ],
-  "externally_connectable": {
-    "matches": ["*://fp.mythictable.com/play/*/debug"]
-  }
+  "web_accessible_resources":[
+    {
+      "matches":["*://fp.mythictable.com/*"],
+      "resources":["icons/*.svg"]
+    }
+  ]
   
 }

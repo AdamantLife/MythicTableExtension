@@ -85,6 +85,7 @@ function updateExtensionID(){
 function clearCurrentCombat(){
     // Signal for the on-page plugin to handle this
     executeScript(()=>{MTEINIT.clearCurrentCombat()});
+    window.close();
 }
 
 /**
@@ -93,6 +94,7 @@ function clearCurrentCombat(){
 function addAllCombat(){
     // Signal for the on-page plugin to handle this
     executeScript(()=>{MTEINIT.updateAllTokens()});
+    window.close();
 }
 
 /**
@@ -103,6 +105,8 @@ function pasteCharacter(){
         .then(storage=>{
             executeScript((character)=>MTECOPY.pasteCharacter(character), [storage.copyCharacter]);
         });
+
+    window.close();
 }
 
 /**
@@ -111,6 +115,7 @@ function pasteCharacter(){
 function addAllHP(){
     // Signal for the on-page plugin to handle this
     executeScript(()=>{MTEHP.updateAllTokens()});
+    window.close();
 }
 
 // This object allows us to interrupt an .then() chain

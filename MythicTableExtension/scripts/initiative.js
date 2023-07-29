@@ -25,6 +25,9 @@ class InitiativeTracker{
         // DEVNOTE- This is assumed to be safe because MTE is only ever initialized on a Map
         //      If this changes in the future, we may need to change how we do this
         this.checkLoadInit();
+
+        // Adds Populate Init Tags button to Edit Token/Character Window
+        MTE.subscribe("initshortcut", this.getCurrentEdit.bind(this), ["window/pushDisplayedModal", "window/popDisplayedModal"]);
     }
 
     get initList(){ return document.getElementById("initList");}
@@ -63,12 +66,8 @@ class InitiativeTracker{
         <div class="init-header">
             <div>Initiative</div>
             ${MTE.isGM ? `
-        <svg data-v-546a6080 viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" data-original-title="null" class=" has-tooltip decrement">
-            <polygon data-v-546a6080 points="2,12.53 7.5,3 13,12.53" fill="none" stroke="white"></path>
-        </svg>
-        <svg data-v-546a6080 viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" data-original-title="null" class=" has-tooltip increment">
-            <polygon data-v-546a6080 points="2,3 7.5,12.53 13,3" fill="none" stroke="white"></path>
-        </svg>` : ""}
+        <img class="icon downarrow" />
+        <img class="icon uparrow" />` : ""}
         </div>
     </div>
     <div data-v-546a6080 class="content">
@@ -84,8 +83,8 @@ class InitiativeTracker{
         // Increments/decrements Initiative
         // (only available for GM)
         if(MTE.isGM){
-            window.document.querySelector("div.sidebar-content>div.window:last-of-type>div.header svg.increment").onclick=(event)=>{this.increment(); event.preventDefault(); event.stopPropagation(); return false;}
-            window.document.querySelector("div.sidebar-content>div.window:last-of-type>div.header svg.decrement").onclick=(event)=>{this.decrement(); event.preventDefault(); event.stopPropagation(); return false;}
+            window.document.querySelector("div.sidebar-content>div.window:last-of-type>div.header img.downarrow").onclick=(event)=>{this.increment(); event.preventDefault(); event.stopPropagation(); return false;}
+            window.document.querySelector("div.sidebar-content>div.window:last-of-type>div.header img.uparrow").onclick=(event)=>{this.decrement(); event.preventDefault(); event.stopPropagation(); return false;}
         }
         // Selects the token on the battlefield
         this.initList.onclick=this.selectToken.bind(this);
@@ -447,6 +446,41 @@ class InitiativeTracker{
             // Updates were made
             if(!current || !initiative || !bonus) MTE.store._actions['tokens/update'][0](basetoken);
         }
+    }
+
+    /**
+     * Adds a Button to the Edit Token/Character Window to automatically add
+     * Initiative Tracker info
+     */
+    getCurrentEdit({type, payload}, state){
+        this.currentEditCharacter = state.characters.characterToEdit;
+        if(this.currentEditCharacter){
+            // Check to see if MTE has added a second Action Button row for us to use
+            let row2 = document.querySelector("div.action-buttons[data-v-62ea9887]+div.row-2");
+            // If it hasn't don't do anything
+            if(!row2) return;
+            // Note- Copy Button is 15px to match .modal-button's font-size 
+            row2.insertAdjacentHTML('beforeend', `
+<button data-v-62ea9887 class="modal-button selected"
+    style="background-color:#0cb72d;width:auto;padding:0 10px;border:none"
+    title="Add Initiative Info">
+    <img class="icon init"/>
+</button>`);
+            row2.querySelector("button:has(img.init)").onclick = this.addInitToEdit.bind(this);
+        };
+    }
+
+    addInitToEdit(){
+        // DEVNOTE- This might need to be updated later
+        let textarea = document.querySelector("textarea[data-v-77bb0833]");
+        let text = textarea.value;
+        if(!InitiativeTracker.CURRENTRE.test(text)) text+="\n@currentcombat";
+        if(!InitiativeTracker.INITRE.test(text))text+="\n@initiative: 0";
+        if(!InitiativeTracker.INITBONUSRE.test(text))text+="\n@initiative bonus: 0";
+
+        textarea.value = text;
+        // trigger input event to update the "save" button
+        textarea.dispatchEvent(new Event("input"));
     }
 }
 

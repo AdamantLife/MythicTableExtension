@@ -56,34 +56,26 @@ class HPIndicator{
 
         MTE.subscribe("tokenaddhp", tokenAddFilter, ["collections/add"]);
 
-        // Make sure token ring colors are up-to-date
-        for(let token of MTE.getTokens()){
-            let result = this.parseToken(token);
-            if(result) this.setRingColor(token, result);
-        }
-        let result = this.parseGM(MTE.GMCharacter);
-        for(let tokenresult of result){
-            if(!tokenresult.token) continue;
-            this.setRingColor(tokenresult.token, tokenresult);
-        }
+        // Adds Populate HP Tags button to Edit Token/Character Window
+        MTE.subscribe("hpshortcut", this.getCurrentEdit.bind(this), ["window/pushDisplayedModal", "window/popDisplayedModal"]);
+
+        this.updateAllRings();
     }
 
     /**
      * Tries to parse out hp values from a token object's description
      * @param {Object} token - A token object to parse the description of
      * 
-     * @returns {Object | null} - The parse result: either an object with maxHP and currentHP values, or null
-     *      if the parse was unsuccessful
+     * @returns {Object} - The parse result: an object with maxHP and currentHP values,
+     *              either which may be null if no value was parsed for that property.
      */
     parseToken(token){
         // Find maxHP
         let maxresult = HPIndicator.TOKENHPRE.exec(token.description);
         // Find currentHP
         let currentresult = HPIndicator.TOKENCURRENTRE.exec(token.description);
-        // If didn't find both, return null (as we can't update without both)
-        if(!maxresult || !currentresult) return null;
         // Otherwise return the values
-        return {maxHP: parseInt(maxresult.groups.maxHP), currentHP: parseInt(currentresult.groups.currentHP)};
+        return {maxHP: parseInt(maxresult?.groups.maxHP ?? null), currentHP: parseInt(currentresult?.groups.currentHP ?? null)};
     }
 
     /**
@@ -123,11 +115,11 @@ class HPIndicator{
         // Get the token
         let token = MTE.getToken(mutation.payload.id);
         // Check for HP info
-        let result = this.parseToken(token);
+        let {maxHP, currentHP} = this.parseToken(token);
         // No info, so don't do anything
-        if(!result) return;
+        if(isNaN(maxHP) || isNaN(currentHP)) return;
         // Update the ring color
-        this.setRingColor(token, result);
+        this.setRingColor(token, {maxHP, currentHP});
     }
 
 
@@ -174,16 +166,16 @@ class HPIndicator{
         console.log("here");
         // Get Token from payload and parse it
         let token = mutation.payload.item;
-        let result = this.parseToken(token);
+        let {maxHP, currentHP} = this.parseToken(token);
         // If it doesn't have HP info recorded on it, check to see if it's recorded on the Gm
-        if(!result){
+        if(isNaN(maxHP) || isNaN(currentHP)){
             let gmparse = this.parseGM(MTE.GMCharacter)
             // Note that gmparse is an array regardless of whether anything was parsed or not
             for(let gmresult of gmparse){
                 // GM has a matching name
                 if(gmresult.token.name == token.name)
                 {
-                    result = gmresult;
+                    ({maxHP, currentHP} = gmresult);
                     // Exit the loop
                     // DEVNOTE: In theory we shouldn't have multiple matches, but we may
                     //      need to consider how to handle it if we do in the future
@@ -192,9 +184,9 @@ class HPIndicator{
             }
         }
         // We still don't have a result (after parsing gm)
-        if(!result) return;
+        if(isNaN(maxHP) || isNaN(currentHP)) return;
 
-        this.setRingColor(token, result);
+        this.setRingColor(token, {maxHP, currentHP});
     }
 
     /**
@@ -244,6 +236,20 @@ class HPIndicator{
         MTE.store._actions['tokens/update'][0](token);
     }
 
+    updateAllRings(){
+        console.log("Updating all rings")
+        // Make sure token ring colors are up-to-date
+        for(let token of MTE.getTokens()){
+            let {maxHP, currentHP} = this.parseToken(token);
+            if(!isNaN(maxHP) && !isNaN(currentHP)) this.setRingColor(token, {maxHP, currentHP});
+        }
+        let result = this.parseGM(MTE.GMCharacter);
+        for(let tokenresult of result){
+            if(!tokenresult.token) continue;
+            this.setRingColor(tokenresult.token, tokenresult);
+        }
+    }
+
     updateAllTokens(){
         let gmchange = false;
         let gmcharacter;
@@ -262,21 +268,22 @@ class HPIndicator{
             if(basetoken._userid != playerid) continue;
             // Visible Character/Token, so add HP to its token directly
             if(!basetoken.private){
-                console.log("Visible token", basetoken.name)
+                console.log("Visible token", basetoken.name, token)
 
                 let {maxHP, currentHP} = this.parseToken(basetoken);
+                console.log(`>>> Max HP: ${maxHP} (${isNaN(maxHP)}), Current HP: ${currentHP} (${isNaN(currentHP)})`);
 
-                // Update as necessary
-                if(!maxHP) basetoken.description += `\n@maxHP: 0`;
-                if(!currentHP) basetoken.description += `\n@currentHP: 0`;
+                // Update as necessary, using identity to avoid (hp=0)==null
+                if(isNaN(maxHP)) basetoken.description += `\n@maxHP: 0`;
+                if(isNaN(currentHP)) basetoken.description += `\n@currentHP: 0`;
 
                 // If we made changes, push to Mythic Table
-                if(!maxHP || !currentHP) MTE.store._actions['tokens/update'][0](token);
+                if(isNaN(maxHP) || isNaN(currentHP)){ console.log(">>> Saving Token"); MTE.store._actions['tokens/update'][0](basetoken);}
 
             // DEVNOTE- Non-GM's shouldn't be able to make hidden tokens, so this line
             //          should be extraneous, but included just in case
             }else if(isGM){
-                console.log("Hidden token", basetoken.name)
+                console.log("Hidden token", basetoken.name, token)
                 // Hidden Token belonging to GM are registered on the GMCHARACTER
                 let found = false;
                 // Check if token in gmtokens
@@ -294,6 +301,9 @@ class HPIndicator{
                 gmtokens.push({token: basetoken, maxHP: 0, currentHP: 0});
                 // Flag for gmchange
                 gmchange = true;
+            }
+            else{
+                console.log("Unknown Token", basetoken)
             }
         }
 
@@ -314,6 +324,42 @@ class HPIndicator{
 }`);
             MTE.store._actions['characters/update'][0](gmcharacter);
         }
+
+        this.updateAllRings();
+    }
+
+    /**
+     * Adds a Button to the Edit Token/Character Window to automatically add
+     * HP tracker info
+     */
+    getCurrentEdit({type, payload}, state){
+        this.currentEditCharacter = state.characters.characterToEdit;
+        if(this.currentEditCharacter){
+            // Check to see if MTE has added a second Action Button row for us to use
+            let row2 = document.querySelector("div.action-buttons[data-v-62ea9887]+div.row-2");
+            // If it hasn't don't do anything
+            if(!row2) return;
+            // Note- Copy Button is 15px to match .modal-button's font-size 
+            row2.insertAdjacentHTML('beforeend', `
+<button data-v-62ea9887 class="modal-button selected"
+    style="background-color:#0cb72d;width:auto;padding:0 10px;border:none"
+    title="Add HP Info">
+    <img class="icon hp"/>
+</button>`);
+            row2.querySelector("button:has(img.hp)").onclick = this.addHP.bind(this);
+        };
+    }
+
+    addHP(){
+        // DEVNOTE- This might need to be updated later
+        let textarea = document.querySelector("textarea[data-v-77bb0833]");
+        let text = textarea.value;
+        if(!HPIndicator.TOKENHPRE.test(text))text+="\n@maxhp: 0";
+        if(!HPIndicator.TOKENCURRENTRE.test(text))text+="\n@currenthp: 0";
+
+        textarea.value = text;
+        // trigger input event to update the "save" button
+        textarea.dispatchEvent(new Event("input"));
     }
 }
 

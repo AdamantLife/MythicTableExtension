@@ -43,6 +43,9 @@ class MythicTableExtension{
         this.subscribeAction("leavecampaign", this.clearLocations.bind(this), ["gamestate/clear"]);
         // this.subscribe("debug", console.log);
         //this.subscribeAction("actiondebug", console.log);
+
+        // Adds an additional dropdown to Character Edit windows which can provide more options
+        this.subscribe("editoptions", this.addEditOptions.bind(this), ["window/pushDisplayedModal", "window/popDisplayedModal"]);
     }
 
     get store(){
@@ -341,6 +344,33 @@ class MythicTableExtension{
 
     getCharacterEditDiv(){
         return window.document.querySelector("div[data-v-756ac686]")
+    }
+
+    /**
+     * Updates Character/Token Edit windows owned by the player with a toggleable
+     * dropdown button for more Edit options
+     */
+    addEditOptions({type, payload}, state){
+        this.currentEditCharacter = state.characters.characterToEdit;
+        if(this.currentEditCharacter){
+            // We want to insert copy button between cancel and delete, so we'll get ref to the delete button
+            let deletebutton = document.querySelector("div.action-buttons[data-v-62ea9887]>button.delete");
+            // When creating a character or selecting a character you do not own you do not get a delete button
+            // Since we can't distinguish between the two, we'll do nothing and just disallow the user from
+            // copying tokens/characters they do not own
+            if(!deletebutton) return;
+            // Note- Copy Button is 15px to match .modal-button's font-size 
+            deletebutton.insertAdjacentHTML('beforebegin', `
+<button data-v-62ea9887 class="modal-button selected togglebutton off"
+    style="background-color:#909090;width:auto;padding:0 10px;border:none">
+    <img class="icon"/>
+</button>`);
+            let actionbuttons = document.querySelector("div.action-buttons[data-v-62ea9887]");
+            actionbuttons.insertAdjacentHTML('afterend', `<div class="action-buttons row-2 toggle"></div>`);
+            let toggle = document.querySelector("div.action-buttons[data-v-62ea9887]>button.togglebutton")
+            let row2 = document.querySelector("div.action-buttons.row-2");
+            toggle.onclick = ()=>{toggle.classList.toggle("off"); row2.scrollIntoView()};
+        };
     }
 }
 
