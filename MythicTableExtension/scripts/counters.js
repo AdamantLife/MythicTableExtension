@@ -15,7 +15,9 @@ class CounterTracker{
     static GMCOUNTERRE = /^\s*(?<tokenname>[^:]+)\s*:\s*(?<name>\w+)\s+(?<remaining>\d+)(?:\s*$|\s+(?<timing>start|end)\s*$)/gm;
     
     constructor(){
-        window.MTEINIT.callbacks.push(this.onInit.bind(this));
+        // While counters can be defined by anyone, counter
+        // automation can only be performed by the GM to avoid collisions
+        if(MTE.isGM) window.MTEINIT.callbacks.push(this.onInit.bind(this));
 
         // Adds Populate Init Tags button to Edit Token/Character Window
         window.MTE.subscribe("countershortcut", this.getCurrentEdit.bind(this), ["window/pushDisplayedModal", "window/popDisplayedModal"]);
