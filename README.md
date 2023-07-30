@@ -8,6 +8,7 @@ A Browser Extension to temporarily add functionality to Mythic Table while it's 
   * <a href="#initiative">Initiative Tracker</a>
   * <a href="#copy">Copy Character</a>
   * <a href="#hp">HP Indicator</a>
+  * <a href="#counters">Counters</a>
 * <a href="#faq">FAQ/Troubleshooting</a>
 
 <br/>
