@@ -157,6 +157,10 @@ As of Release Version 1.02 the following will following will automatically be ad
 <h2 id="counters">Using Counters</h2>
 <img src="readmeimages/counters.png"/>
 
+<h3>Important Note</h3>
+
+**Like the HP Indicator, the GM must be running this extension in order for Counters to function**
+
 <img class="small" src="readmeimages/counters2.png"/>
 
 **Setting a Counter on Individual Tokens**
