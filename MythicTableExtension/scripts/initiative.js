@@ -11,10 +11,25 @@ class InitiativeTracker{
     static CURRENTRE = /@currentcombat\s*$/im
     static INITRE = /@initiative:\s*(?<initiative>\d+)\s*$/im;
     static INITBONUSRE = /@initiative bonus:\s*(?<initbonus>[+-]?\d+)\s*$/im;
-    static GMINIT = /@currentinitiative:\s+(?<id>\w*)\s*$/im;
+    static GMINIT = /@currentinitiative:\s*(?<id>\w*)\s*$/im;
 
     constructor(){
         this.state = true;
+
+
+        /**
+         * Registered InitiativeTracker Callback
+         * @callback InitCallback
+         * @param {Element | null} previousElement - The element that was the current initiative Element prior to cycleInitiative being called
+         * @param {Element | null} currentElement - The current initiative Element as a result of cycleInitiative being called
+         */
+
+        /**
+         * Allows for other extension scripts to be notified when cycleInitiative is called
+         * @type {InitCallback[]} - Callbacks should all be functions
+         */
+        this.callbacks = [];
+
         // Change listener
         MTE.subscribe("init", this.updateInitiative.bind(this), ["collections/add", "collections/remove", "collections/patch"]);
         // Our triggers are getting duplicated when we change maps, so we're disabling the tracker until the map is loaded
@@ -95,7 +110,10 @@ class InitiativeTracker{
         }
         this.resort();
         
-        this.updateCurrent();
+        // DEVNOTE- adding arbitrary delay because Characters are not loaded initially
+        //      currently this is the only module that cares about characters so we are
+        //      not setting up any universal watcher for Characters to be populated
+        timeout(1000).then(this.updateCurrent.bind(this));
     }
 
     /**
@@ -327,34 +345,38 @@ class InitiativeTracker{
             initList.append(row);
         }
     }
-    
+
     /**
      * Increments the current Token to the next Token in initiative order
      */
     increment(){
-        let info = this.getGMInfo();
-        let ele = this.initList.querySelector(`tr[data-id="${info.currentinitiative}"]`);
-        let newele;
-        // If GM info doesn't have anything assigned or the corresponding does not exist
-        // then get the first element
-        if(!ele){
-            newele = this.initList.firstElementChild;
-            // The list is empty, so update the GM Info
-            if(!newele) return this.updateGMInfo({currentinitiative: null});
-        }else{
-            // Otherwise, get the next element
-            newele = ele.nextElementSibling;
-            // We're at the bottom of the list, so loop back up to the top
-            if(!newele) newele = this.initList.firstElementChild;
-        }
-        
-        this.updateGMInfo({currentinitiative: newele.dataset.id});
+        // Cycle either to the next Element or the first element if there are no next elements
+        let cycleFunc = (ele)=> ele.nextElementSibling ?? this.initList.firstElementChild;
+        this.cycleInitiative(cycleFunc);
     }
 
     /**
      * Reverts Initiative to the previous Token in initiative order
      */
     decrement(){
+        // Cycle either to the previous Element or the last element if there are no next elements
+        let cycleFunc = (ele)=> ele.previousElementSibling ?? this.initList.lastElementChild;
+        this.cycleInitiative(cycleFunc);
+    }
+
+    /**
+     * A function which cycles between elements
+     * @typedef {Function} CycleFunc
+     * @param {Element} ele - The element to begin cycling from
+     * @returns {Element} - The element that was cycled to (may be the same element)
+     */
+
+    /**
+     * Function for updating the current Initiative based on a Cycle Function
+     * @param {CycleFunc} cycleFunc - A function which determines how to cycle from the current initiative element.
+     * @returns {null}
+     */
+    cycleInitiative(cycleFunc){
         let info = this.getGMInfo();
         let ele = this.initList.querySelector(`tr[data-id="${info.currentinitiative}"]`);
         let newele;
@@ -365,13 +387,15 @@ class InitiativeTracker{
             // The list is empty, so update the GM Info
             if(!newele) return this.updateGMInfo({currentinitiative: null});
         }else{
-            // Otherwise, get the previous element
-            newele = ele.previousElementSibling;
-            // We're at the top of the list, so loop back up to the bottom
-            if(!newele) newele = this.initList.lastElementChild;
+            newele = cycleFunc(ele);
         }
         
         this.updateGMInfo({currentinitiative: newele.dataset.id});
+
+        for(let callback of this.callbacks){
+            callback(ele, newele);
+        }
+
     }
 
     /**
@@ -453,36 +477,59 @@ class InitiativeTracker{
      * Initiative Tracker info
      */
     getCurrentEdit({type, payload}, state){
-        this.currentEditCharacter = state.characters.characterToEdit;
-        if(this.currentEditCharacter){
-            // Check to see if MTE has added a second Action Button row for us to use
-            let row2 = document.querySelector("div.action-buttons[data-v-62ea9887]+div.row-2");
-            // If it hasn't don't do anything
-            if(!row2) return;
-            // Note- Copy Button is 15px to match .modal-button's font-size 
-            row2.insertAdjacentHTML('beforeend', `
+        let currentEditCharacter = state.characters.characterToEdit;
+        if(!currentEditCharacter) return;
+        // We currently do not have a GMCharacter-based Initiative tag, so don't add an icon
+        if(currentEditCharacter._id == MTE.GMCharacter._id) return;
+
+        // Check to see if MTE has added a second Action Button row for us to use
+        let {row2} = MTE.editWindow;
+        // If it hasn't don't do anything
+        if(!row2) return;
+        // Note- Copy Button is 15px to match .modal-button's font-size 
+        row2.insertAdjacentHTML('beforeend', `
 <button data-v-62ea9887 class="modal-button selected"
-    style="background-color:#0cb72d;width:auto;padding:0 10px;border:none"
-    title="Add Initiative Info">
-    <img class="icon init"/>
+style="background-color:#0cb72d;width:auto;padding:0 10px;border:none"
+title="Add Initiative Info">
+<img class="icon init"/>
 </button>`);
-            row2.querySelector("button:has(img.init)").onclick = this.addInitToEdit.bind(this);
-        };
+        // DEVNOTE- This is here in case we add an Initiative Tag for the GMCharacter
+        // GM Character has a different quick-add button callback
+        if(currentEditCharacter._id == MTE.GMCharacter._id) return row2.querySelector("button:has(img.init)").onclick = this.addInitToGM.bind(this);
+        // Non GM Characters
+        row2.querySelector("button:has(img.init)").onclick = this.addInitToEdit.bind(this);
+    }
+
+    /**
+     *  This is pre-implemented in case we add a GMCharacter-based Initiative tag
+     */
+    addInitToGM(){
+        return;
+        let {description} = MTE.editWindow;
+        let text = description.value;
+
+        description.value = text;
+        // trigger input event to update the "save" button
+        description.dispatchEvent(new Event("input"));
     }
 
     addInitToEdit(){
-        // DEVNOTE- This might need to be updated later
-        let textarea = document.querySelector("textarea[data-v-77bb0833]");
-        let text = textarea.value;
+        let {description} = MTE.editWindow;
+        let text = description.value.trimEnd();
         if(!InitiativeTracker.CURRENTRE.test(text)) text+="\n@currentcombat";
         if(!InitiativeTracker.INITRE.test(text))text+="\n@initiative: 0";
         if(!InitiativeTracker.INITBONUSRE.test(text))text+="\n@initiative bonus: 0";
 
-        textarea.value = text;
+        description.value = text.trimStart();
         // trigger input event to update the "save" button
-        textarea.dispatchEvent(new Event("input"));
+        description.dispatchEvent(new Event("input"));
     }
 }
 
 
-if(!window.MTEINIT || typeof window.MTEINIT == "undefined") window.MTEINIT = new InitiativeTracker();
+(async ()=>{
+    if(!window.MTEINIT || typeof window.MTEINIT == "undefined"){
+        let result = await waitModule("MTE");
+        if(result) window.MTEINIT = new InitiativeTracker();
+    }
+})();

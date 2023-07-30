@@ -138,7 +138,6 @@ class HPIndicator{
     }
 
     nameChangeCallback(mutation, state){
-        console.log('here2')
         // Get the full token
         let token = MTE.getToken(mutation.payload.id);
         // We don't need to parse token because it would have been parsed before
@@ -163,7 +162,6 @@ class HPIndicator{
     }
 
     tokenAddCallback(mutation, state){
-        console.log("here");
         // Get Token from payload and parse it
         let token = mutation.payload.item;
         let {maxHP, currentHP} = this.parseToken(token);
@@ -237,7 +235,6 @@ class HPIndicator{
     }
 
     updateAllRings(){
-        console.log("Updating all rings")
         // Make sure token ring colors are up-to-date
         for(let token of MTE.getTokens()){
             let {maxHP, currentHP} = this.parseToken(token);
@@ -268,22 +265,19 @@ class HPIndicator{
             if(basetoken._userid != playerid) continue;
             // Visible Character/Token, so add HP to its token directly
             if(!basetoken.private){
-                console.log("Visible token", basetoken.name, token)
 
                 let {maxHP, currentHP} = this.parseToken(basetoken);
-                console.log(`>>> Max HP: ${maxHP} (${isNaN(maxHP)}), Current HP: ${currentHP} (${isNaN(currentHP)})`);
 
                 // Update as necessary, using identity to avoid (hp=0)==null
                 if(isNaN(maxHP)) basetoken.description += `\n@maxHP: 0`;
                 if(isNaN(currentHP)) basetoken.description += `\n@currentHP: 0`;
 
                 // If we made changes, push to Mythic Table
-                if(isNaN(maxHP) || isNaN(currentHP)){ console.log(">>> Saving Token"); MTE.store._actions['tokens/update'][0](basetoken);}
+                if(isNaN(maxHP) || isNaN(currentHP)) MTE.store._actions['tokens/update'][0](basetoken);
 
             // DEVNOTE- Non-GM's shouldn't be able to make hidden tokens, so this line
             //          should be extraneous, but included just in case
             }else if(isGM){
-                console.log("Hidden token", basetoken.name, token)
                 // Hidden Token belonging to GM are registered on the GMCHARACTER
                 let found = false;
                 // Check if token in gmtokens
@@ -309,7 +303,6 @@ class HPIndicator{
 
         // If gmtokens has changed update the GMCharacter
         if(gmchange){
-            console.log("Updating GM")
             // Don't duplicate tokennames
             let tokennames = [];
             // Output string
@@ -333,33 +326,55 @@ class HPIndicator{
      * HP tracker info
      */
     getCurrentEdit({type, payload}, state){
-        this.currentEditCharacter = state.characters.characterToEdit;
-        if(this.currentEditCharacter){
-            // Check to see if MTE has added a second Action Button row for us to use
-            let row2 = document.querySelector("div.action-buttons[data-v-62ea9887]+div.row-2");
-            // If it hasn't don't do anything
-            if(!row2) return;
-            // Note- Copy Button is 15px to match .modal-button's font-size 
-            row2.insertAdjacentHTML('beforeend', `
+        let currentEditCharacter = state.characters.characterToEdit;
+        if(!currentEditCharacter) return;
+        // Check to see if MTE has added a second Action Button row for us to use
+        let {row2} = MTE.editWindow;
+        // If it hasn't don't do anything
+        if(!row2) return;
+        // Note- Copy Button is 15px to match .modal-button's font-size 
+        row2.insertAdjacentHTML('beforeend', `
 <button data-v-62ea9887 class="modal-button selected"
-    style="background-color:#0cb72d;width:auto;padding:0 10px;border:none"
-    title="Add HP Info">
-    <img class="icon hp"/>
+style="background-color:#0cb72d;width:auto;padding:0 10px;border:none"
+title="Add HP Info">
+<img class="icon hp"/>
 </button>`);
-            row2.querySelector("button:has(img.hp)").onclick = this.addHP.bind(this);
-        };
+
+        // GM Tags are different from Token Tags
+        if(currentEditCharacter._id == MTE.GMCharacter._id) return row2.querySelector("button:has(img.hp)").onclick = this.addGMHP.bind(this);
+        row2.querySelector("button:has(img.hp)").onclick = this.addHP.bind(this);
     }
+    
 
     addHP(){
         // DEVNOTE- This might need to be updated later
-        let textarea = document.querySelector("textarea[data-v-77bb0833]");
-        let text = textarea.value;
+        let {description} = MTE.editWindow;
+        let text = description.value;
         if(!HPIndicator.TOKENHPRE.test(text))text+="\n@maxhp: 0";
         if(!HPIndicator.TOKENCURRENTRE.test(text))text+="\n@currenthp: 0";
 
-        textarea.value = text;
+        description.value = text;
         // trigger input event to update the "save" button
-        textarea.dispatchEvent(new Event("input"));
+        description.dispatchEvent(new Event("input"));
+    }
+
+    addGMHP(){
+        let {description} = MTE.editWindow;
+        let text = description.value;
+
+        if(!HPIndicator.GMRE.test(text)) text+=`\n@hptracker{
+}`;
+        let hpcontent = /@hptracker\s*{\s+(?<content>[^}]*)\s*}/m.exec(text)?.groups.content.trimEnd() ?? "";
+        
+        hpcontent += `
+[Monster]: 0/0`;
+        text = text.replace(/@hptracker\s*{[^}]*}/m, `@hptracker{
+${hpcontent.trimStart()}
+}`);
+
+        description.value = text;
+        // trigger input event to update the "save" button
+        description.dispatchEvent(new Event("input"));
     }
 }
 
@@ -378,4 +393,9 @@ function createHexString(color){
     return "#"+padConvert(color.r)+padConvert(color.g)+padConvert(color.b);
 }
 
-if(!window.MTEHP || typeof window.MTEHP == "undefined") window.MTEHP = new HPIndicator();
+(async ()=>{
+    if(!window.MTEHP || typeof window.MTEHP == "undefined"){
+        let result = await waitModule("MTE");
+        if(result) window.MTEHP = new HPIndicator();
+    }
+})();

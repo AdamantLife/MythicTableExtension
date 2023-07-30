@@ -8,10 +8,6 @@
     height: 30px !important;
 }
 
-img.icon.copy{
-    content: url("chrome-extension://__MSG_@@extension_id__/icons/copy.svg");
-}
-
 img.icon.uparrow{
     content: url("chrome-extension://__MSG_@@extension_id__/icons/uparrow.svg");
 }
@@ -27,6 +23,15 @@ img.icon.downarrow{
     img.icon.downarrow.solid{
         content: url("chrome-extension://__MSG_@@extension_id__/icons/downarrow_solid.svg");
     }
+
+img.icon.copy{
+    content: url("chrome-extension://__MSG_@@extension_id__/icons/copy.svg");
+}
+
+img.icon.counter{
+    content: url("chrome-extension://__MSG_@@extension_id__/icons/counter.svg");
+}
+
 
 img.icon.hp{
     content: url("chrome-extension://__MSG_@@extension_id__/icons/hp.svg");
