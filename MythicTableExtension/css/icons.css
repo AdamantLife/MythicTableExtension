@@ -1,0 +1,42 @@
+.modal-button img.icon {
+    height: 1em;
+    width: 1em;
+    margin-bottom: 2px;
+}
+
+.sidebar .header img.icon {
+    height: 30px !important;
+}
+
+img.icon.uparrow{
+    content: url("chrome-extension://__MSG_@@extension_id__/icons/uparrow.svg");
+}
+
+    img.icon.uparrow.solid{
+        content: url("chrome-extension://__MSG_@@extension_id__/icons/uparrow_solid.svg");
+    }
+
+img.icon.downarrow{
+    content: url("chrome-extension://__MSG_@@extension_id__/icons/downarrow.svg");
+}
+
+    img.icon.downarrow.solid{
+        content: url("chrome-extension://__MSG_@@extension_id__/icons/downarrow_solid.svg");
+    }
+
+img.icon.copy{
+    content: url("chrome-extension://__MSG_@@extension_id__/icons/copy.svg");
+}
+
+img.icon.counter{
+    content: url("chrome-extension://__MSG_@@extension_id__/icons/counter.svg");
+}
+
+
+img.icon.hp{
+    content: url("chrome-extension://__MSG_@@extension_id__/icons/hp.svg");
+}
+
+img.icon.init{
+    content: url("chrome-extension://__MSG_@@extension_id__/icons/init.svg");
+}

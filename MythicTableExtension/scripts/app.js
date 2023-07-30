@@ -25,6 +25,17 @@ let GMCHARACTER = {
     "version": "0.0.1"
 };
 
+/**
+ * An object indexing Elements of the Edit Modal window
+ * @typedef {Object} EditWindow
+ * @property {HTMLDivElement} modal - The EditWindow Modal itself
+ * @property {HTMLInputElement} name - The Name Input Element
+ * @property {HTMLTextAreaElement} description - The Description Text Area Element
+ * @property {HTMLDivElement} actionbuttons - The Div Element containing the EditWindow's action buttons
+ * @property {HTMLDivElement} row2 - The second row of Action Buttons added by the MTE; not available if
+ *                                  queried prior to the MTE editing the Modal.
+ */
+
 class MythicTableExtension{
     constructor(){
         this.subscriptions = {};
@@ -43,6 +54,9 @@ class MythicTableExtension{
         this.subscribeAction("leavecampaign", this.clearLocations.bind(this), ["gamestate/clear"]);
         // this.subscribe("debug", console.log);
         //this.subscribeAction("actiondebug", console.log);
+
+        // Adds an additional dropdown to Character Edit windows which can provide more options
+        this.subscribe("editoptions", this.addEditOptions.bind(this), ["window/pushDisplayedModal", "window/popDisplayedModal"]);
     }
 
     get store(){
@@ -53,6 +67,10 @@ class MythicTableExtension{
         
         let result = recurseFind("store");
         return result[result.length-1];
+    }
+
+    get director(){
+        return this.state.live.director;
     }
 
     get state(){
@@ -89,6 +107,25 @@ class MythicTableExtension{
 
     get GMCharacter(){
         return this.getCharacterByName(GMCHARACTER.name);
+    }
+
+    /**
+     * Returns an object indexing elements of the Edit Modal window
+     * @returns {EditWindow}
+     */
+    get editWindow(){
+        let output = {modal: null, name: null, description: null, actionbuttons:null, row2: null};
+        output.modal = document.querySelector("div.modal-container[data-v-756ac686]");
+        if(output.modal){
+            // DEVNOTE- Since both name and description share the same Vue Data id this seems a little
+            //          sketchy and should probably be changed to search for their legends ("Name" and
+            //          "Description" respectively)
+            output.name = output.modal.querySelector("input[data-v-77bb0833]");
+            output.description = output.modal.querySelector("textarea[data-v-77bb0833]");
+            output.actionbuttons = output.modal.querySelector("div.action-buttons[data-v-62ea9887]");
+            output.row2 = output.modal.querySelector("div.action-buttons[data-v-62ea9887]+div.row-2")
+        }
+        return output;
     }
 
     confirmGM(){
@@ -339,8 +376,34 @@ class MythicTableExtension{
         this.state.tokens.selectedToken = {};
     }
 
-    getCharacterEditDiv(){
-        return window.document.querySelector("div[data-v-756ac686]")
+    /**
+     * Updates Character/Token Edit windows owned by the player with a toggleable
+     * dropdown button for more Edit options
+     */
+    addEditOptions({type, payload}, state){
+        let currentEditCharacter = state.characters.characterToEdit;
+        if(!currentEditCharacter) return;
+
+        let {modal, actionbuttons} = this.editWindow;
+        // We want to insert copy button between cancel and delete, so we'll get ref to the delete button
+        let deletebutton = actionbuttons.querySelector("button.delete");
+        // When creating a character or selecting a character you do not own you do not get a delete button
+        // Since we can't distinguish between the two, we'll opt to do nothing to be safe
+        if(!deletebutton) return;
+
+        // Note- Copy Button is 15px to match .modal-button's font-size 
+        deletebutton.insertAdjacentHTML('beforebegin', `
+<button data-v-62ea9887 class="modal-button selected togglebutton off"
+title="Mythic Table Extension"
+style="background-color:#909090;width:auto;padding:0 10px;border:none">
+<img class="icon"/>
+</button>`);
+
+        actionbuttons.insertAdjacentHTML('afterend', `<div class="action-buttons row-2 toggle"></div>`);
+        let toggle = actionbuttons.querySelector("button.togglebutton");
+        // querySelecting instead of recreating this.editWindow;
+        let row2 = modal.querySelector("div.action-buttons.row-2");
+        toggle.onclick = ()=>{toggle.classList.toggle("off"); row2.scrollIntoView()};
     }
 }
 
@@ -397,4 +460,44 @@ function recurseFind(target, start = window){
     return path;
 }
 
-if(!window.MTE || typeof window.MTE == "undefined") window.MTE = new MythicTableExtension();
+/**
+ * An implementation of setTImeout as a Promise for async usage.
+ * @param {number} delay - The delay in milliseconds
+ * @return {Promise} - Timeout as a promise
+ */
+function timeout(delay){
+    return new Promise((resolve)=>{
+        setTimeout(resolve, delay);
+    });
+}
+
+/**
+ * Various modules are dependent on other entities to function.
+ * This async loop attempts to wait until the given prerequisite entity has been loaded
+ * @param {string | callback} modulename - The entity to wait for
+ * @param {number} maxattempts - Maximum number of loops to delay for
+ * @param {number} wait - Number of milliseconds each individual loop should delay for
+ * @returns {boolean} - Whether the prerequisite module was loaded within the provided amount of time
+ */
+async function waitModule(modulename, maxattempts = 3, wait = 500){
+    let attempts = 0;
+    while(attempts < maxattempts){
+        if(
+            (typeof modulename == "function" && modulename())  ||
+            (window[modulename] && typeof window[modulename] !== "undefined")
+            ) return true;
+        else{
+            attempts++;
+            await timeout(wait);
+        }
+    }
+    return false;
+}
+
+(async ()=>{
+    if(!window.MTE || typeof window.MTE == "undefined"){
+        let result = await waitModule(()=>recurseFind("store"));
+        if(result) window.MTE = new MythicTableExtension();
+        else alert("State was not initialized: refresh page to use Mythic Table Extension");
+    }
+})();

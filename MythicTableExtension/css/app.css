@@ -1,0 +1,19 @@
+.action-buttons.row-2{
+    bottom: -20px;
+}
+
+.action-buttons.hidden{
+    display:none;
+}
+
+.togglebutton img{
+    content: url("chrome-extension://__MSG_@@extension_id__/icons/uparrow_solid.svg");
+}
+
+    .togglebutton.off img{
+        content: url("chrome-extension://__MSG_@@extension_id__/icons/downarrow_solid.svg");
+    }
+
+.togglebutton.off+*.toggle, *:has(.togglebutton.off)+*.toggle{
+    display: none;
+}

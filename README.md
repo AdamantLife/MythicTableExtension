@@ -24,6 +24,9 @@ A Browser Extension to temporarily add functionality to Mythic Table while it's 
 * HP Indicator
   * This feature sets the color of the Token's Border Color to a gradient between <span style="color:green;">Green</span> (full health) and <span style="color:red;">Red</span> (0 HP)
   *  When the Token is reduced to 0 HP, the "*Death Skull*" icon will be set on the Token. The skull is automatically removed when the Token's HP raises above 0.
+* Counters
+  * Define Counters on Tokens which expire after a given number of turns
+  * A message will broadcast to the Chat Log when a counter expires
 
 <br/>
 <h1 id="installation">Installation</h1>
@@ -49,12 +52,13 @@ A Browser Extension to temporarily add functionality to Mythic Table while it's 
 </ol>
 
 <h1 id="usage">Usage</h1>
-As of Release Version 1.02 the following will following will automatically be added to the Mythic Table UI (previously these needed to be manually actiated):
+As of Release Version 1.02 the following will following will automatically be added to the Mythic Table UI when you load a Campaign's page:
 
 * Create the GM Token (be sure to see below)
 * Add the Initiative Tracker to the sidebar
 * Populate the Initiatve Tracker with any appropriately tagged Tokens
 * Set the Border and Icons for any Tokens with HP Indicator tags
+* Character and Token Edit Modal *(Popup)* Windows populate with a toggleable toolbar containing Extension-related actions (i.e.- automatically adding tags to a token)
 
 **A Note about Tags**- Unless otherwise specified, each individual tag should be on a separate line in the character/token's description, e.g.:
 ```
@@ -84,6 +88,9 @@ As of Release Version 1.02 the following will following will automatically be ad
   * `@currentcombat` - This adds the Token to the Initiative Tracker
   * `@initiative: {initiative value}`- Sets the character's initiative so it can be sorted in the list
   * `@initiative bonus: {+- Bonus}`- Used as a tiebreaker when two characters have the same initiative
+* *Alternatively*, expand the Mythic Table Extension's toolbar in the editor window (gray down arrow)
+  * Click the Initiatvive icon to automatically add the above tags
+  * Adjust the values
 * Save the token: it will automatically be added and the Initiative List will be resorted
 
 <img class="small" src="readmeimages/initiativetracker2.png"/>
@@ -99,8 +106,8 @@ As of Release Version 1.02 the following will following will automatically be ad
 <img src="readmeimages/copycharacter.png"/>
 
 **Copying**
-* Whenever you open the Character or Token Editor, a Copy Button is added to the dialog box. Clicking this will store the Character in the Extension's storage
-  * Note that this will only save the current version of the token: any change you make in the current dialog will not be reflected in the storage
+* Whenever you open the Character or Token Editor, a Copy Button is added to the Mythic Table Extension's Toolbar (accessed by clicking the gray down arrow). Clicking the Copy Button will store the Character in the Extension's storage
+  * Note that this will only save the last saved version of the token: any change you make in the current dialog will not be reflected in the storage
 
 **Pasting**
 * In the Page Action (Toolbar Icon) Popup, the Paste Button is initially disabled. Once you copy a Character (or Token) the Paste Button will be enabled and the Popup will display the name of the copied Character
@@ -110,7 +117,9 @@ As of Release Version 1.02 the following will following will automatically be ad
 <h2 id="hp">Using the HP Indicator</h2>
 <img src="readmeimages/hpindicator.png"/>
 
-**Important Note-** To enable this feature the GM must be running this extension: this requirement is in place to prevent duplicate updates to tokens.
+<h3>Important Note</h3>
+
+**To enable this feature the GM must be running this extension: this requirement is in place to prevent duplicate updates to tokens.**
 
 <img class="small" src="readmeimages/hpindicator2.png"/>
 
@@ -127,14 +136,48 @@ As of Release Version 1.02 the following will following will automatically be ad
   * `@maxHP: {number}` sets the token's Maximum HP
   * `@currentHP: {number}` sets the token's Current HP
   * Both tags are required
+* *Alternatively*, toggle open the Mythic Table Extension's Toolbar (gray down arrow) in the Character Edit Window
+  * Click the **HP** Icon to automatically add the above tags
+  * Adjust the values
 
 <img class="small" src="readmeimages/hpindicator3.png"/>
 
 **Setting HP on the GMCHARACTER Manually**
-* As the GM, you can use the HP Indicator without your Players being able to see the tokens' HP values by setting the `@hptracker` tag on the *GMCHARACTER*.
+* As the GM you can use the HP Indicator without your Players being able to see the tokens' HP values by setting the `@hptracker{}` tag on the *GMCHARACTER*.
 * `@hptracker{}` is a special tag: the curly brackets in this case are required as the tag is a list
   * Inside of the curly brackets you can define token HP using the format: `{token name}: {currentHP}/{maxHP}`
-  * Each token declaration must be separated by a new line
+  * Each token declaration must start on a new line
+* *Alternatively*, toggle open the Mythic Table Extension's Toolbar (gray down arrow) in the Character Edit Window
+    * Click the "HP" icon to automatically add the `@hptracker{}` tag and populate it with a template for a token's hp
+      * If you already have the `@hptracker{}` tag, this will simply add a new token hp template
+    * Adjust the template for the new token
+
+<br/>
+<h2 id="counters">Using Counters</h2>
+<img src="readmeimages/counters.png"/>
+
+<img class="small" src="readmeimages/counters2.png"/>
+
+**Setting a Counter on Individual Tokens**
+* Anyone can setup a Counter for tokens they have access to by setting a counter tag:
+  * `@counter: {counter_name} {number-of-turns} {"start" or "end" of turn (optional)}`
+    * *e.g.*- `@counter: sleep 1` is a counter that will expire at the end of the token's next turn
+  * *Alternatively*, toggle open the Mythic Table Extension's Toolbar (gray down arrow) in the Character Edit Window
+    * Click the "C" icon to automatically add a template for the counter tag
+    * Adjust the values
+
+<img class="small" src="readmeimages/counters3.png"/>
+
+**Setting Counters on the GMCHARACTER**
+* As the GM you can set Counters without your Players being able to see the counters by adding the `@counters{}` tag to the *GMCHARACTER*
+  * **Important!**- As there is no "whisper" functionality, when a counter expires on the GMCHARACTER it is broadcasts to the public Chat Log, so you may want to use an ambiguous name for the counter if you don't want the players to know what the counter was doing
+  * `@counters{}` is a special tag: the curly brackets in this case are required as the tag is a list
+    * Inside of the curly brackets you can define counters using the format: `{token name}: {counter_name} {number-of-turns} {"start" or "end" of turn (optional)}`
+    * Each counter declaration must start on a new line
+  * *Alternatively*, toggle open the Mythic Table Extension's Toolbar (gray down arrow) in the Character Edit Window
+    * Click the "C" icon to automatically add the `@counters{}` tag and populate it with a template for a counter tag
+      * If you already have the `@counters{}` tag, this will simply add a new counter template
+    * Adjust the template for the new counter
 
 <br/>
 <h1 id="faq">FAQ/Troubleshooting</h1>
@@ -147,7 +190,7 @@ This normally occurs because you are using the crx file: in this case you have t
 
 **The Arrows on the Initiative Tracker and the Token Images are Ginormous!**
 <div class="indented">
-Refreshing your webpage normally fixes this. While this is inconvenient, it generally only happens once. The CSS (styling) for those objects are added to the page by your Browser at the behest of the MTE: if your Browser fails to load that stylesheet we won't really know within the Extension. If this becomes a more prevelant problem we may simply hard-code the styling into the elements, but as it rarely happens we've decided to live with it for the time being.
+Refreshing your webpage normally fixes this. While this is inconvenient, it generally only happens once. The CSS (styling) for those objects are added to the page by your Browser at the behest of the MTE: if your Browser fails to load the stylesheet we won't really know that happened from within the Extension. If this becomes a more prevelant problem we may simply hard-code the styling into the elements, but as it rarely happens we've decided to live with it for the time being.
 </div>
 <br/>
 
